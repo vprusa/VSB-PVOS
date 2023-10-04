@@ -77,6 +77,10 @@ void second() {
     while... waitpid( ... NOHANG ).... // posbirá jen ukončené potomky
   }
   */
+
+  /*
+   * Rodič bude opět rozpoznávat způsob ukončení potomka a povede si statistiku, kolik procesů vytvořil, kolik jich skončilo a cca každou vteřinu vypíše stav.
+  */
 }
 
 int main() {
