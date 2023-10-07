@@ -70,81 +70,15 @@ void first(int N) {
 }
 
 /**
-Rodič si bude stále udržovat N potomků. N bude argument programu.
-
-Myšlenka:
-*/
-void second(int N) {
-  printf("second\n");
-  int T = 1;
-  int Tu = 100000;
-    printf("first\n");
-    pid_t child_pid, wpid;
-    int status = 0;
-
-    pid_t pid = 0;
-    int pid_id = 0;
-    for (int i = 1; i <= N; i++) {
-        if(pid == 0) { // TODO
-            pid = fork();
-            pid_id = i;
-        }
-    }
-
-    if(pid == 0) {
-        pid_id = 0;
-        printf("Main pid %i: %i\n", pid_id, pid);
-    } else {
-        int ri = (rand() + pid_id) % (N-1);
-        printf("pid %i: %i, rand: %i\n", pid_id, pid, ri);
-        // nahodne ukonceni
-//    int status;
-
-        switch(pid_id) {
-            case 1:
-                printf("neplatny pointer\n");
-                int * ptr = (231987264123123123);
-                printf("%s\n", ptr);
-                break;
-            case 2:
-                printf("deleni nulou\n");
-                float fail = 1.0f / 0.0f;
-                break;
-            case 3:
-            default:
-                printf("exec ls\n");
-                char *args[2];
-
-                args[0] = "/bin/ls";        // first arg is the full path to the executable
-                args[1] = NULL;             // list of args must be NULL terminated
-
-                if ( fork() == 0 )
-                    execv( args[0], args ); // child: call execv with the path and the args
-                else
-                    wait( &status );        // parent: wait for the child (not really necessary)
-                break;
-        }
-    }
-
-    printf("waiting: pid: %i, rand: %i\n", pid_id, pid);
-    while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes
-    printf("first - done\n");
-
-
-
-  /**
+  Rodič si bude stále udržovat N potomků. N bude argument programu.
+  Myšlenka:
   while () {
     if ( fork() == 0 ) { sleep( rand() % T ); return 0; }
     usleep( ? );
     while... waitpid( ... NOHANG ).... // posbirá jen ukončené potomky
   }
+  * Rodič bude opět rozpoznávat způsob ukončení potomka a povede si statistiku, kolik procesů vytvořil, kolik jich skončilo a cca každou vteřinu vypíše stav.
   */
-
-  /*
-   * Rodič bude opět rozpoznávat způsob ukončení potomka a povede si statistiku, kolik procesů vytvořil, kolik jich skončilo a cca každou vteřinu vypíše stav.
-  */
-}
-
 int second2(int NUM_PROCESSES) {
 
     int running_time[NUM_PROCESSES];
@@ -213,26 +147,31 @@ int second2(int NUM_PROCESSES) {
             }
 
             time_t end_time = time(NULL) - start_time;
-            if(end_time > 1) {
+            if(end_time >= 1) {
                 start_time = time(NULL);
-                printf("\n?? Status ");
-                printf("of %i: pid: %i, %i, %i\n", num_finished, pid, getpid(), getppid());
+                time_t cur_running_time = (time(NULL) - start_time_all);
+                printf("\n?? Status of %i: pid: %i, %i, %i, run_time: %i[s]\n", num_finished, pid, getpid(), getppid(), cur_running_time);
                 for (int i = 0; i < NUM_PROCESSES; i++) {
-                    printf("?? - status of %i: %i s: %i, pid: %i\n", i, pids[i], finish_state[i], getpid());
+                    if(finish_state[i] == -1) {
+                        running_time[i] = (time(NULL) - start_time_all);
+                    }
+                    printf("?? - status of %i: %i s: %i, pid: %i run_time: %i\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
                 }
             }
 
-
         } while (num_finished < NUM_PROCESSES);
 
-        printf("\n?? Status ");
-        printf("of %i: pid: %i, %i, %i\n", num_finished, pid, getpid(), getppid());
+        time_t cur_running_time = (time(NULL) - start_time_all);
+        printf("\n?? Statistics of %i: pid: %i, %i, %i, run_time: %i[s]\n", num_finished, pid, getpid(), getppid(), cur_running_time);
+        int failed_processes = 0;
         for (int i = 0; i < NUM_PROCESSES; i++) {
-            printf("?? - status of %i: %i s: %i, pid: %i\n", i, pids[i], finish_state[i], getpid());
+            if(finish_state[i] != 0) {
+                failed_processes++;
+            }
+            printf("?? - status of %i: %i s: %i, pid: %i, run_time: %i[s]\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
         }
-
+        printf("\n?? Statistics failed_processes: %i of %i, run_time: %i[s]\n", failed_processes, NUM_PROCESSES, cur_running_time);
     }
-
 
     if(getpid() != parent_pid) {
 //        finish_state[pid_id] = status;
@@ -251,7 +190,7 @@ int main() {
 //   first(5);
    printf("second %i vs new %i\n", parent_pid, getpid());
    if(getpid() == parent_pid) {
-       second2(10);
+       second2(6);
    }
    return 0;
 }
