@@ -16,57 +16,65 @@
 Vytvořte si proces s N potomky, kdy potomci se náhodně ukončí různým způsobem. Např. korektně i nekorektně: neplatný pointer, dělení 0. Proveďte exec, např. programu ls.
 */
 void first(int N) {
-  printf("first\n");
+  printf("!!! Starting first first\n");
   pid_t child_pid, wpid;
   int status = 0;
-
+  pid_t parent_pid = getpid();
   pid_t pid = 0;
   int pid_id = 0;
-  for (int i = 1; i <= N; i++) {
-    if(pid == 0) {
-      pid = fork();
-      pid_id = i;
+  for (int i = 0; i < N; i++) {
+    if(getpid() == parent_pid) {
+        pid_id = i;
+        pid = fork();
     }
   }
 
-  if(pid == 0) {
-    pid_id = 0;
-    printf("Main pid %i: %i\n", pid_id, pid);
+  //if(pid > 0) {
+  if(getpid() == parent_pid) {
+    printf("\n!!! Main pid %i\n", parent_pid);
   } else {
     int ri = (rand() + pid_id) % (N-1);
-    printf("pid %i: %i, rand: %i\n", pid_id, pid, ri);
-    // nahodne ukonceni
-//    int status;
+    printf("- Child pid_id %i: %i, rand: %i\n", pid_id, getpid(), ri);
 
+    // nahodne ukonceni
     switch(pid_id) {
       case 1:
-        printf("neplatny pointer\n");
-        int * ptr = (231987264123123123);
-        printf("%s\n", ptr);
+        printf("- ? neplatny pointer, pid: %i\n", getpid());
+//        int * ptr = (231987264123123123);
+//        printf("%s\n", ptr);
+        exit(11);
       break;
       case 2:
-        printf("deleni nulou\n");
+        printf("- ? deleni nulou, pid: %i\n", getpid());
         float fail = 1.0f / 0.0f;
+        exit(12);
       break;
       case 3:
-      default:
-        printf("exec ls\n");
+//      default:
+        printf("- ? exec ls, pid: %i\n", getpid());
         char *args[2];
-
+        int status2 = 0;
         args[0] = "/bin/ls";        // first arg is the full path to the executable
         args[1] = NULL;             // list of args must be NULL terminated
 
         if ( fork() == 0 )
             execv( args[0], args ); // child: call execv with the path and the args
         else
-            wait( &status );        // parent: wait for the child (not really necessary)
+            wait( &status2 );        // parent: wait for the child (not really necessary)
+//        wait( &status2 );        // parent: wait for the child (not really necessary)
       break;
+      default:
+        printf("- ? default exit(0), pid: %i\n", getpid());
+        exit(0);
     }
   }
-  
-  printf("waiting: pid: %i, rand: %i\n", pid_id, pid);
-  while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes 
-  printf("first - done\n");
+
+  if(getpid() == parent_pid) {
+    printf("!!! Parent waiting: pid: %i\n", getpid());
+    while ((wpid = wait(&status)) > 0); // this way, the father waits for all the child processes
+    printf("!!! Parent done: pid: %i\n", getpid());
+  }
+
 }
 
 /**
@@ -174,23 +182,17 @@ int second2(int NUM_PROCESSES) {
     }
 
     if(getpid() != parent_pid) {
-//        finish_state[pid_id] = status;
-//        int run_time = (time(NULL) - start_time_all);
         printf("... - done - %i\n", getpid());
-//        printf("... done: %d, status: %i - time: %i - done\n", pid, getpid(), running_time);
-//        printf("first - done, %d\n", num_finished);
     }
 }
 
 int main() {
-   // printf() displays the string inside quotation
    int parent_pid = getpid();
-   printf("init %i\n", parent_pid);
    srand(time(NULL));
-//   first(5);
-   printf("second %i vs new %i\n", parent_pid, getpid());
+   first(5);
    if(getpid() == parent_pid) {
-       second2(6);
+//       printf("\n\nSecond assignment %i vs new %i\n", parent_pid, getpid());
+//       second2(6);
    }
    return 0;
 }
