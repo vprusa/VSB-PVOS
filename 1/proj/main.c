@@ -31,7 +31,7 @@ void first(int N) {
 
   //if(pid > 0) {
   if(getpid() == parent_pid) {
-    printf("\n!!! Main pid %i\n", parent_pid);
+    printf("!!! Main pid %i\n", parent_pid);
   } else {
     int ri = (rand() + pid_id) % (N-1);
     printf("- Child pid_id %i: %i, rand: %i\n", pid_id, getpid(), ri);
@@ -40,8 +40,8 @@ void first(int N) {
     switch(pid_id) {
       case 1:
         printf("- ? neplatny pointer, pid: %i\n", getpid());
-//        int * ptr = (231987264123123123);
-//        printf("%s\n", ptr);
+        int * ptr = (231987264123123123);
+        printf("- ? neplatny pointer, pid: %i, res: %s\n", getpid(), ptr);
         exit(11);
       break;
       case 2:
@@ -50,18 +50,17 @@ void first(int N) {
         exit(12);
       break;
       case 3:
-//      default:
         printf("- ? exec ls, pid: %i\n", getpid());
         char *args[2];
         int status2 = 0;
         args[0] = "/bin/ls";        // first arg is the full path to the executable
         args[1] = NULL;             // list of args must be NULL terminated
 
-        if ( fork() == 0 )
+        if ( fork() == 0 ) {
             execv( args[0], args ); // child: call execv with the path and the args
-        else
+        } else {
             wait( &status2 );        // parent: wait for the child (not really necessary)
-//        wait( &status2 );        // parent: wait for the child (not really necessary)
+        }
       break;
       default:
         printf("- ? default exit(0), pid: %i\n", getpid());
