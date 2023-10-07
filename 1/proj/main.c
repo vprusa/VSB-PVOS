@@ -1,16 +1,10 @@
 #include <stdio.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <time.h>
 #include <stdlib.h>
 
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
 /**
 Vytvořte si proces s N potomky, kdy potomci se náhodně ukončí různým způsobem. Např. korektně i nekorektně: neplatný pointer, dělení 0. Proveďte exec, např. programu ls.
@@ -118,7 +112,7 @@ int second2(int NUM_PROCESSES) {
 
     if (pid == 0) {
         int rand_in_range = (((rand() + getpid()) % NUM_PROCESSES));
-        int rand_sleep_time = (rand_in_range * 4 ) + 5;
+        int rand_sleep_time = (rand_in_range * 3 ) + 3;
         printf("!!! sleep: pid: %i, pid_id: %i, pid: %i, rir: %i, sleep time: %i\n",
                getpid(), pid_id, getpid(), rand_in_range, rand_sleep_time);
         sleep((rand_sleep_time));
@@ -190,8 +184,8 @@ int main() {
    srand(time(NULL));
    first(5);
    if(getpid() == parent_pid) {
-//       printf("\n\nSecond assignment %i vs new %i\n", parent_pid, getpid());
-//       second2(6);
+       printf("\n\nSecond assignment %i vs new %i\n", parent_pid, getpid());
+       second2(6);
    }
    return 0;
 }
