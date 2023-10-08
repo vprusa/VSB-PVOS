@@ -72,7 +72,7 @@ int* second_assignment(int NUM_PROCESSES) {
                     if(finish_state[i] == -1) {
                         running_time[i] = (time(NULL) - start_time_all);
                     }
-                    printf("?? - status of %i: %i s: %i, pid: %i run_time: %i\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
+//                    printf("?? - status of %i: %i s: %i, pid: %i run_time: %i\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
                 }
             }
 
@@ -99,13 +99,22 @@ int main() {
    int parent_pid = getpid();
    srand(time(NULL));
 
-   second_assignment(3);
-   /*
-   first(5);
-   if(getpid() == parent_pid) {
-       printf("\n\nSecond assignment %i vs new %i\n", parent_pid, getpid());
-       second2(6);
-   }
-   */
+   /**
+    * Nasledujici je pro NUM_PROCESSE = 10000:
+    *
+    * Pokus nastaveni `ulimit -u 1000` vraci
+    * `-l: fork: retry: Resource temporarily unavailable`
+    *
+    * Pro `ulimit -u 2000` mi program zaznamenal vytvoreni 136 procesu dle
+    * ```
+    * cat run.sh.log | sort -n -k2 | tail -n 1
+    *   Start 136 : 76279 76416 76279 started
+    * ```
+    *
+    * Pro `ulimit -u 10000` a naslednem spusteni ./run.sh mi tento program
+    * vygeneroval `8132` zaznamu o novych vlaknech.
+    * Start 8132 : 67817 75950 67817 started
+    */
+   second_assignment(10000);
    return 0;
 }
