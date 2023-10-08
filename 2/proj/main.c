@@ -7,12 +7,31 @@
 #include <sys/wait.h>
 
 /**
-    Vyzkoušejte, kolik procesů vám systém dovolí vytvořit procesů. { while fork…. while waitpid….
-    Pro testování si raději nastavte ulimit -u 10000.
-    Kolik současně běžících vláken můžete vytvořit. Kód vlákna bude { while ( 1 ) sleep( 1 ); return nullptr; }
-    Kolik vláken můžete postupně vytvořit. Kód vlákna bude {return nullptr;} a nedělá se ani join ani detach.
-    Udržujte si cca 1000 potomků, zachytávejte SIGCHLD, v sighandleru provádějte while ...waitpid... a počítejte počet signálů a počet ukončených potomků.
+ * Zadani:
+ * 2.1. Vyzkoušejte, kolik procesů vám systém dovolí vytvořit procesů. { while fork…. while waitpid….
+ * 2.2. Pro testování si raději nastavte ulimit -u 10000.
+ * 2.3. Kolik současně běžících vláken můžete vytvořit. Kód vlákna bude { while ( 1 ) sleep( 1 ); return nullptr; }
+ * 2.4. Kolik vláken můžete postupně vytvořit. Kód vlákna bude {return nullptr;} a nedělá se ani join ani detach.
+ * 2.5. Udržujte si cca 1000 potomků, zachytávejte SIGCHLD, v sighandleru provádějte while ...waitpid... a počítejte počet signálů a počet ukončených potomků.
+ *
+ * 2.1.:
+ *
+ * Nasledujici je pro NUM_PROCESSE = 10000:
+ *
+ * Pokus nastaveni `ulimit -u 1000` vraci
+ * `-l: fork: retry: Resource temporarily unavailable`
+ *
+ * Pro `ulimit -u 2000` mi program zaznamenal vytvoreni 136 procesu dle
+ * ```
+ * cat run.sh.log | sort -n -k2 | tail -n 1
+ *   Start 136 : 76279 76416 76279 started
+ * ```
+ *
+ * Pro `ulimit -u 10000` a naslednem spusteni ./run.sh mi tento program
+ * vygeneroval `8132` zaznamu o novych vlaknech.
+ * Start 8132 : 67817 75950 67817 started
  */
+ 
 int* second_assignment(int NUM_PROCESSES) {
 
     int running_time[NUM_PROCESSES];
@@ -98,23 +117,6 @@ int* second_assignment(int NUM_PROCESSES) {
 int main() {
    int parent_pid = getpid();
    srand(time(NULL));
-
-   /**
-    * Nasledujici je pro NUM_PROCESSE = 10000:
-    *
-    * Pokus nastaveni `ulimit -u 1000` vraci
-    * `-l: fork: retry: Resource temporarily unavailable`
-    *
-    * Pro `ulimit -u 2000` mi program zaznamenal vytvoreni 136 procesu dle
-    * ```
-    * cat run.sh.log | sort -n -k2 | tail -n 1
-    *   Start 136 : 76279 76416 76279 started
-    * ```
-    *
-    * Pro `ulimit -u 10000` a naslednem spusteni ./run.sh mi tento program
-    * vygeneroval `8132` zaznamu o novych vlaknech.
-    * Start 8132 : 67817 75950 67817 started
-    */
    second_assignment(10000);
    return 0;
 }
