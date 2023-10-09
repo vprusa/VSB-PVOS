@@ -51,7 +51,10 @@
  * b)
  *
  * 2.3.
- * TODO viz https://docs.oracle.com/cd/E19455-01/806-4750/signals-7/index.html
+ * Pro 1000 potomku se mi z nejakeho duvodu nezaznamenavaji vsechny potomky.
+ * Jelikoz pouzivat _Atomic citac, tak dohaduji, ze se vzdy neporvola funkce `proc_exit`.
+ * Podobny problem je popsan zde: https://cboard.cprogramming.com/linux-programming/155448-sigchld-handler-not-executing-dependably.html
+ * s odpovedi `... What you need to know is that signals are NOT placed in a queue. If the signal arrives whilst in the middle of a signal handler, it is lost. ...`
  */
 
 _Atomic int proc_exit_calls = 0;
@@ -173,16 +176,15 @@ int* second_assignment(int NUM_PROCESSES, int shouldSleep) {
 }
 
 int main() {
-   int parent_pid = getpid();
-   srand(time(NULL));
-    second_assignment(10000);
+    int parent_pid = getpid();
+    srand(time(NULL));
     if(parent_pid == getpid()) {
         printf("!!! Should sleep\n");
-        second_assignment(10, 1);
+        second_assignment(1000, 1);
     }
     if(parent_pid == getpid()) {
         printf("!!! Should not sleep\n");
-        second_assignment(100, 0);
+        second_assignment(1000, 0);
     }
     return 0;
 }
