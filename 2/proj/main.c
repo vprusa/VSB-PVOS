@@ -54,7 +54,6 @@
  * TODO viz https://docs.oracle.com/cd/E19455-01/806-4750/signals-7/index.html
  */
 
-
 _Atomic int proc_exit_calls = 0;
 _Atomic int proc_exit_loop_calls = 0;
 _Atomic int proc_exit_loop_return_calls = 0;
@@ -63,10 +62,8 @@ void proc_exit() {
     int wstat;
     pid_t pid;
 
-//    proc_exit_calls++;
     atomic_fetch_add(&proc_exit_calls, 1);
     while (1) {
-//        proc_exit_loop_calls++;
         atomic_fetch_add(&proc_exit_loop_calls, 1);
         pid = wait3(&wstat, WNOHANG, NULL);
         if (pid == 0 || pid == -1) {
@@ -149,7 +146,6 @@ int* second_assignment(int NUM_PROCESSES, int shouldSleep) {
                     if(finish_state[i] == -1) {
                         running_time[i] = (time(NULL) - start_time_all);
                     }
-//                    printf("?? - status of %i: %i s: %i, pid: %i run_time: %i\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
                 }
 
                 if(proc_exit_calls == proc_exit_calls_prev) {
@@ -172,15 +168,6 @@ int* second_assignment(int NUM_PROCESSES, int shouldSleep) {
 
         time_t cur_running_time = (time(NULL) - start_time_all);
         printf("\n?? Statistics of %i: pid: %i, %i, %i, run_time: %i[s]\n", num_finished, pid, getpid(), getppid(), cur_running_time);
-/*        int failed_processes = 0;
-        for (int i = 0; i < NUM_PROCESSES; i++) {
-            if(finish_state[i] != 0) {
-                failed_processes++;
-            }
-            printf("?? - status of %i: %i s: %i, pid: %i, run_time: %i[s]\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
-        }*/
-
-//        printf("\n?? Statistics failed_processes: %i of %i, run_time: %i[s]\n", failed_processes, NUM_PROCESSES, cur_running_time);
         printf("\n?? Statistics proc_exit_calls: %i, proc_exit_loop_calls: %i, proc_exit_loop_return_calls: %i, run_time: %i[s]\n", proc_exit_calls, proc_exit_loop_calls, proc_exit_loop_return_calls, cur_running_time);
     }
 }
