@@ -9,6 +9,9 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
+#include <stdio.h>
+#include <stdatomic.h>
+#include <pthread.h>
 
 /**
  * Zadani:
@@ -52,33 +55,30 @@
  */
 
 
-void proc_exit()
-{
-/*    int wstat;
-    union wait wstat;
-    pid_t	pid;
+_Atomic int proc_exit_calls = 0;
+_Atomic int proc_exit_loop_calls = 0;
+_Atomic int proc_exit_loop_return_calls = 0;
 
-    while (1) {
-        pid = wait3 (&wstat, WNOHANG, (struct rusage *)NULL );
-        if (pid == 0)
-            return;
-        else if (pid == -1)
-            return;
-        else
-            printf ("Return code: %d\n", wstat.w_retcode);
-    }*/
+void proc_exit() {
     int wstat;
     pid_t pid;
 
+//    proc_exit_calls++;
+    atomic_fetch_add(&proc_exit_calls, 1);
     while (1) {
+//        proc_exit_loop_calls++;
+        atomic_fetch_add(&proc_exit_loop_calls, 1);
         pid = wait3(&wstat, WNOHANG, NULL);
-        if (pid == 0 || pid == -1)
+        if (pid == 0 || pid == -1) {
+            atomic_fetch_add(&proc_exit_loop_return_calls, 1);
             return;
-        printf("-- Return code: %d, %i\n", wstat, getpid());
+        }
+        printf("-- Return code: %d, %i, %i, %i, %i\n",
+               wstat, getpid(), proc_exit_calls, proc_exit_loop_calls, proc_exit_loop_return_calls);
     }
 }
 
-int* second_assignment(int NUM_PROCESSES) {
+int* second_assignment(int NUM_PROCESSES, int shouldSleep) {
     signal (SIGCHLD, proc_exit);
     int running_time[NUM_PROCESSES];
     int finish_state[NUM_PROCESSES];
@@ -109,15 +109,24 @@ int* second_assignment(int NUM_PROCESSES) {
     }
 
     if (pid == 0) {
-//        while ( 1 ) sleep( 1 ); return NULL;
-        return NULL;
+        // TODO parametrize
+        if(shouldSleep == 1) {
+            printf("... start sleeping, pid: %i\n", getpid());
+            while ( 1 ) {
+                sleep( 1 ); return NULL;
+            }
+        } else {
+            printf("... returning: pid: %i\n", getpid());
+            return NULL;
+        }
     }
 
     if(getpid() == parent_pid) {
         printf("\n!!! Main process, %i, %i, %i, %i\n", getpid(), getppid(), pid, parent_pid);
 
         time_t start_time = time(NULL);
-
+        int proc_exit_calls_times_same = 0;
+        int proc_exit_calls_prev = proc_exit_calls;
         do {
             for (int i = 0; i < NUM_PROCESSES; i++) {
                 int status2 = 1;
@@ -134,17 +143,28 @@ int* second_assignment(int NUM_PROCESSES) {
                 start_time = time(NULL);
                 time_t cur_running_time = (time(NULL) - start_time_all);
                 printf("\n?? Status of %i: pid: %i, %i, %i, run_time: %i[s]\n", num_finished, pid, getpid(), getppid(), cur_running_time);
+                printf("?? Statistics proc_exit_calls: %i, proc_exit_loop_calls: %i, proc_exit_loop_return_calls: %i, run_time: %i[s]\n", proc_exit_calls, proc_exit_loop_calls, proc_exit_loop_return_calls, cur_running_time);
+
                 for (int i = 0; i < NUM_PROCESSES; i++) {
                     if(finish_state[i] == -1) {
                         running_time[i] = (time(NULL) - start_time_all);
                     }
 //                    printf("?? - status of %i: %i s: %i, pid: %i run_time: %i\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
                 }
+
+                if(proc_exit_calls == proc_exit_calls_prev) {
+                    if(++proc_exit_calls_times_same > 3) {
+                        printf("?? breaking the loop because number of exited processes did not change in %i loops.\n", proc_exit_calls_times_same);
+                        break;
+                    }
+                }else {
+                    proc_exit_calls_prev = proc_exit_calls;
+                }
             }
         int status3 = -1;
         pid_t result = waitpid(-1, &status3, WNOHANG);
         if(result != -1) {
-            printf("\n?? No children processes broke the loop: statistics %i: pid: %i, %i, %i\n",
+            printf("\n?? No children processes running, stop the loop: statistics %i: pid: %i, %i, %i\n",
                    num_finished, pid, getpid(), getppid());
             break;
         }
@@ -152,25 +172,30 @@ int* second_assignment(int NUM_PROCESSES) {
 
         time_t cur_running_time = (time(NULL) - start_time_all);
         printf("\n?? Statistics of %i: pid: %i, %i, %i, run_time: %i[s]\n", num_finished, pid, getpid(), getppid(), cur_running_time);
-        int failed_processes = 0;
+/*        int failed_processes = 0;
         for (int i = 0; i < NUM_PROCESSES; i++) {
             if(finish_state[i] != 0) {
                 failed_processes++;
             }
             printf("?? - status of %i: %i s: %i, pid: %i, run_time: %i[s]\n", i, pids[i], finish_state[i], getpid(), running_time[i]);
-        }
-        printf("\n?? Statistics failed_processes: %i of %i, run_time: %i[s]\n", failed_processes, NUM_PROCESSES, cur_running_time);
-    }
+        }*/
 
-    if(getpid() != parent_pid) {
-        printf("... - done - %i\n", getpid());
+//        printf("\n?? Statistics failed_processes: %i of %i, run_time: %i[s]\n", failed_processes, NUM_PROCESSES, cur_running_time);
+        printf("\n?? Statistics proc_exit_calls: %i, proc_exit_loop_calls: %i, proc_exit_loop_return_calls: %i, run_time: %i[s]\n", proc_exit_calls, proc_exit_loop_calls, proc_exit_loop_return_calls, cur_running_time);
     }
 }
 
 int main() {
    int parent_pid = getpid();
    srand(time(NULL));
-//    second_assignment(10000);
-    second_assignment(10);
-   return 0;
+    second_assignment(10000);
+    if(parent_pid == getpid()) {
+        printf("!!! Should sleep\n");
+        second_assignment(10, 1);
+    }
+    if(parent_pid == getpid()) {
+        printf("!!! Should not sleep\n");
+        second_assignment(100, 0);
+    }
+    return 0;
 }
