@@ -14,6 +14,35 @@
 #include <pthread.h>
 
 /**
+ *
+ * Zadani:
+ *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf. Jednou s fflush a pak se změnou nastavení bufferu.
+ *   Vrtule: str='-/|\'; n=1; while true; do n=$[(n+1)%4]; echo -en "${str:$n:1} \r"; sleep 0.1; done
+ *   Zkuste vrtuli se signálem SIGALRM. Nastavení rychlejšího časování viz:
+ *   github https://github.com/osy-cs/osy-gthreads/blob/main/gthr.c.
+ *   Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
+ *   Je potřeba řídit “něco” viditelného.
+ */
+
+
+
+/**
+ *
+ * Zadani:
+ *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf. Jednou s fflush a pak se změnou nastavení bufferu.
+ *   Vrtule: str='-/|\'; n=1; while true; do n=$[(n+1)%4]; echo -en "${str:$n:1} \r"; sleep 0.1; done
+ *   Zkuste vrtuli se signálem SIGALRM.
+ *   Nastavení rychlejšího časování viz:
+ *   github https://github.com/osy-cs/osy-gthreads/blob/main/gthr.c.
+ *   Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
+ *   Je potřeba řídit “něco” viditelného.
+ *
+ *   https://linuxhint.com/sigalarm_alarm_c_language/
+ *   https://networklessons.com/uncategorized/pause-linux-process-with-sigstop-sigcont
+ */
+
+
+/**
  * Zadani:
  * 2.1. Vyzkoušejte, kolik procesů vám systém dovolí vytvořit procesů. { while fork…. while waitpid….
  *      Pro testování si raději nastavte ulimit -u 10000.
@@ -60,6 +89,8 @@
 _Atomic int proc_exit_calls = 0;
 _Atomic int proc_exit_loop_calls = 0;
 _Atomic int proc_exit_loop_return_calls = 0;
+
+void vrtule_1();
 
 void proc_exit() {
     int wstat;
@@ -176,7 +207,7 @@ int* second_assignment(int NUM_PROCESSES, int shouldSleep) {
 }
 
 int main() {
-    int parent_pid = getpid();
+/*    int parent_pid = getpid();
     srand(time(NULL));
     if(parent_pid == getpid()) {
         printf("!!! Should sleep\n");
@@ -185,6 +216,40 @@ int main() {
     if(parent_pid == getpid()) {
         printf("!!! Should not sleep\n");
         second_assignment(1000, 0);
-    }
+    }*/
+    vrtule_1();
+
     return 0;
+}
+
+
+
+/**
+ * Zadani:
+ *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf. Jednou s fflush
+ */
+void vrtule_1() {
+
+}
+
+/**
+ *  a pak se změnou nastavení bufferu.
+ */
+void vrtule_2() {
+
+}
+
+/**
+ *   Zkuste vrtuli se signálem SIGALRM.
+ */
+void vrtule_3() {
+
+}
+
+/**
+ * Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
+ *   Je potřeba řídit “něco” viditelného.
+ */
+void vrtule_4() {
+
 }
