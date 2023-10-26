@@ -8,6 +8,12 @@
 #include <sys/time.h>
 #include <sys/select.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 
 /**
@@ -61,9 +67,46 @@ int main(int argc, char *argv[]) {
  * @param tout_ms
  * @return
  */
-int readline( int fd, void *ptr, int len, int tout_ms) {
+int readline( int fd, void *ptr, int buffer_size, int tout_ms) {
     int read_bytes = 0;
+    char *buffer = ptr;
 
+    int ix = 0, bytes_malloced = 0;
+
+    if (!buffer)
+    {
+        bytes_malloced = 64;
+        buffer = (char *)malloc(bytes_malloced);
+        buffer_size = bytes_malloced;
+    }
+
+    for (;;++ix)
+    {
+        int ch;
+
+        if (ix == buffer_size - 1)
+        {
+            if (!bytes_malloced)
+                break;
+            bytes_malloced += bytes_malloced;
+            buffer = (char *)realloc(buffer, bytes_malloced);
+            buffer_size = bytes_malloced;
+        }
+
+        ch = getchar();
+        if (ch == EOF)
+        {
+            if (bytes_malloced)
+                free(buffer);
+            return 0;
+        }
+        if (ch == '\n')
+            break;
+        buffer[ix] = ch;
+    }
+
+    /* 0 terminate buffer. */
+    buffer[ix] = '\0';
 
     return read_bytes;
 }
