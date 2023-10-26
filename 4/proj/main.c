@@ -21,26 +21,32 @@ int readline( int fd, void *ptr, int len, int tout_ms);
 int main(int argc, char *argv[]) {
     int fd;
     char buffer[2048];
-    int result;
-    // TODO stty -F /dev/tty -icanon
+    int timelimit = 5000;
     // pro testovaci ucely testovaci soubor, pozdeji nutne resit cekani
-    fd = open("test.txt", O_RDONLY);
+    // fd = open("test.txt", O_RDONLY);
+    // dalsi moznost je pouzit tty dle: `stty -F /dev/tty -icanon`
+    fd = open("/dev/tty", O_RDONLY);
     if (fd == -1) {
         perror("open");
         return 1;
     }
 
-    result = readline(fd, buffer, sizeof(buffer) - 1, 100);
+    int result = readline(fd, buffer, sizeof(buffer) - 1, timelimit);
 
+    // vyhodnoceni vystupu
     if (result == -1) {
-        printf("Chyba pri cteni\n");
-        // TODO rozlisit
-        //        Jen readline vrací timeout jako errno s hodnotou ETIME nebo ETIMEDOUT.
-        // TODO print do perror("xxx");
+        if (errno == ETIMEDOUT) {
+            printf("\nreadline - chyba pri cteni - dosazen timelimit: %d\n", timelimit);
+            perror("readline - timeout\n");
+//            perror("readline - chyba pri cteni - dosazen timelimit: %d\n", timelimit);
+        } else {
+            perror("readline - chyba pri cteni\n");
+        }
     } else if (result == 0) {
-        printf("Prazdny vstup\n");
+        perror("prazdny vstup\n");
     } else {
-        printf("Vystup:\n%s\n", buffer);
+        buffer[result] = '\0';  // ukončení řetězce
+        printf("Vystup: %s\n", buffer);
     }
 
     close(fd);
@@ -57,18 +63,25 @@ int main(int argc, char *argv[]) {
  * @return
  */
 int readline( int fd, void *ptr, int len, int tout_ms) {
+    // inicializace promennych
     int retval;
-    int bytes_read = 0;
-    int n;
+    int bytes_read = 0; // pocet prectenych bytu
+    int n; // citac nasledy prectenych bytu
 
+    // pomocne promenne pro rizeni casovani
     struct timeval timeout;
     struct timeval now;
     struct timeval endtime;
 
+    // promenna pro mnozinu deskriptoru ze kterych se cte
     fd_set rfds;
 
+    // nastaveni flajecek dekstiprotu
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) return -1;
+    if (flags == -1) {
+        // nepovedlo se nastavit vlajecky deksriptoru a tak neuspesne ukoncuji cteni
+        return -1;
+    }
     // nastaveni neblokujicich operaci nad souborem
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
         return -1; // pokud se nepovede ukoncuji cteni
@@ -86,10 +99,12 @@ int readline( int fd, void *ptr, int len, int tout_ms) {
         FD_ZERO(&rfds);
         FD_SET(fd, &rfds);
 
-        // aktualizuji casovy limit
+
+        // aktualizuji cas
         gettimeofday(&now, NULL);
         timersub(&endtime, &now, &timeout);
 
+        // pokud vyprsel casovy limit nebo doslo k chybe, tak ukoncuji cteni
         if (timeout.tv_sec < 0 || (timeout.tv_sec == 0 && timeout.tv_usec <= 0)) {
             errno = ETIMEDOUT;
             // pokud vyprsel timout neuspesne ukoncuji cteni
@@ -114,8 +129,14 @@ int readline( int fd, void *ptr, int len, int tout_ms) {
                     fcntl(fd, F_SETFL, flags);
                     return -1;
                 }
-            } else if (n == 0) {
+            } else if (
+                    n == 0 ||
+                    ((char *)ptr + bytes_read)[0] == '\n' ||
+                    ((char *)ptr + bytes_read)[0] == '\r'
+            ) {
                 // uspesne cteni, ale konec souboru
+                char * last_char = ((char *)(ptr + bytes_read + n));
+                last_char[0]= '\0';
                 break;
             } else {
                 // zvendu hodnotu citace prectenych znaku hodnotu naposledy prectenych znaku
