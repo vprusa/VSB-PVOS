@@ -174,8 +174,8 @@ int main() {
 // TODO argumentize
 //    vrtule_1();
 //    vrtule_2();
-    vrtule_3();
-//    vrtule_4( );
+//    vrtule_3();
+    vrtule_4();
     return 0;
 }
 
@@ -254,5 +254,19 @@ void vrtule_3() {
  */
 void vrtule_4() {
 
+    int childs_cnt = 5;
+    int childs[childs_cnt];
+    pid_t pid = -1;
+    for(int i = 0; i < childs_cnt; i++) {
+        if(pid != 0) {
+            pid = fork();
+            childs[i] = pid;
+        }
+    }
+    if(pid == 0) {
+        printf("!child %d\n", pid);
+    } else {
+//        printf("?parent %d\n", pid);
+    }
 
 }
