@@ -13,26 +13,19 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <memory.h>
+#include<stdio.h>
+#include<unistd.h>
+#include<signal.h>
+#include <unistd.h>
 
 /**
  *
  * Zadani:
- *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf. Jednou s fflush a pak se změnou nastavení bufferu.
+ *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf.
+ *   1) Jednou s fflush a
+ *   2) pak se změnou nastavení bufferu.
  *   Vrtule: str='-/|\'; n=1; while true; do n=$[(n+1)%4]; echo -en "${str:$n:1} \r"; sleep 0.1; done
- *   Zkuste vrtuli se signálem SIGALRM. Nastavení rychlejšího časování viz:
- *   github https://github.com/osy-cs/osy-gthreads/blob/main/gthr.c.
- *   Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
- *   Je potřeba řídit “něco” viditelného.
- */
-
-
-
-/**
- *
- * Zadani:
- *   Naimplementujte “vrtuli” ze znaků “-/|\” pomocí printf. Jednou s fflush a pak se změnou nastavení bufferu.
- *   Vrtule: str='-/|\'; n=1; while true; do n=$[(n+1)%4]; echo -en "${str:$n:1} \r"; sleep 0.1; done
- *   Zkuste vrtuli se signálem SIGALRM.
+ *   3) Zkuste vrtuli se signálem SIGALRM.
  *   Nastavení rychlejšího časování viz:
  *   github https://github.com/osy-cs/osy-gthreads/blob/main/gthr.c.
  *   Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
@@ -42,50 +35,6 @@
  *   https://networklessons.com/uncategorized/pause-linux-process-with-sigstop-sigcont
  */
 
-
-/**
- * Zadani:
- * 2.1. Vyzkoušejte, kolik procesů vám systém dovolí vytvořit procesů. { while fork…. while waitpid….
- *      Pro testování si raději nastavte ulimit -u 10000.
- *      Kolik současně běžících vláken můžete vytvořit. Kód vlákna bude { while ( 1 ) sleep( 1 ); return nullptr; }
- * 2.2 Kolik vláken můžete postupně vytvořit. Kód vlákna bude {return nullptr;} a nedělá se ani join ani detach.
- * 2.3. Udržujte si cca 1000 potomků, zachytávejte SIGCHLD, v sighandleru provádějte while ...waitpid... a počítejte počet signálů a počet ukončených potomků.
- *
- * 2.1.:
- *
- * Nasledujici je pro NUM_PROCESSE = 10000:
- *
- * Pokus nastaveni `ulimit -u 1000` vraci
- * `-l: fork: retry: Resource temporarily unavailable`
- *
- * Pro `ulimit -u 2000` mi program zaznamenal vytvoreni 136 procesu dle
- * ```
- * cat run.sh.log | sort -n -k2 | tail -n 1
- *   Start 136 : 76279 76416 76279 started
- * ```
- *
- * Pro `ulimit -u 10000` a naslednem spusteni ./run.sh mi tento program
- * vygeneroval `8132` zaznamu o novych vlaknech.
- * Start 8132 : 67817 75950 67817 started
- *
- * Napadji me duvody proc 1868(=10000-8132) procesu nevyuzitych:
- * a) main je samotny proces
- * b) run.sh zabere nektere z mozneho poctu procesu
- * c) samotny kompilator v run.sh muze bezet napric vice procesy
- * d) TODO porovnat beh samotneho main
- *
- * 2.2 Kolik vláken můžete postupně vytvořit. Kód vlákna bude {return nullptr;} a nedělá se ani join ani detach.
- * 10 vlaken viz soubor run.sh.2_2.log
- * Duvod me napada, ze je:
- * a) spatne zaznamenani bezicich potomku
- * b)
- *
- * 2.3.
- * Pro 1000 potomku se mi z nejakeho duvodu nezaznamenavaji vsechny potomky.
- * Jelikoz pouzivat _Atomic citac, tak dohaduji, ze se vzdy neporvola funkce `proc_exit`.
- * Podobny problem je popsan zde: https://cboard.cprogramming.com/linux-programming/155448-sigchld-handler-not-executing-dependably.html
- * s odpovedi `... What you need to know is that signals are NOT placed in a queue. If the signal arrives whilst in the middle of a signal handler, it is lost. ...`
- */
 
 _Atomic int proc_exit_calls = 0;
 _Atomic int proc_exit_loop_calls = 0;
@@ -222,11 +171,11 @@ int main() {
         second_assignment(1000, 0);
     }*/
 
+// TODO argumentize
 //    vrtule_1();
-    vrtule_2();
-//    vrtule_3();
-//    vrtule_4();
-
+//    vrtule_2();
+    vrtule_3();
+//    vrtule_4( );
     return 0;
 }
 
@@ -274,11 +223,29 @@ void vrtule_2() {
     }
 }
 
+
+volatile int n = 0;
+void sig_handler(int signum){
+    char str[] = "-/|\\";
+    fprintf(stdout, "\r%c", str[n]);
+    fflush(stdout);
+    n = (n+1) % 4;
+}
+
 /**
  *   Zkuste vrtuli se signálem SIGALRM.
  */
 void vrtule_3() {
+    printf("Vrtule 3 - SIGALRM\n");
+    signal(SIGALRM,sig_handler); // Register signal handler
 
+    while(1) {
+// pokud misto ualarm budu chtit pouzit `alarm`, tak minimalni rychlost toceni vrtule je 1s
+//        alarm(1);
+//        usleep(100000);  // pod 1 sekundu alarm negunfuje ani s `usleep(X)`
+        ualarm(100000, 0);
+        sleep(1);
+    }
 }
 
 /**
@@ -286,5 +253,6 @@ void vrtule_3() {
  *   Je potřeba řídit “něco” viditelného.
  */
 void vrtule_4() {
+
 
 }
