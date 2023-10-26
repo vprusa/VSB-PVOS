@@ -89,7 +89,7 @@ int readline( int fd, void *ptr, int buffer_size, int tout_ms) {
             if (!bytes_malloced)
                 break;
             bytes_malloced += bytes_malloced;
-            buffer = (char *)realloc(buffer, bytes_malloced);
+            buffer = (char *) realloc(buffer, bytes_malloced);
             buffer_size = bytes_malloced;
         }
 
