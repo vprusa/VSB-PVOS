@@ -248,25 +248,52 @@ void vrtule_3() {
     }
 }
 
+
+void vrtule_4_alarm_handler(int signum) {
+    printf("Alarm went off! Time's up.\n");
+//    exit(0);  // Exit after the alarm goes off
+}
+
+
 /**
  * Vytvořte si program s několika (min. 5) potomky a pokuste se je řídit pomocí SIGSTOP a SIGCONT.
  *   Je potřeba řídit “něco” viditelného.
+ *
+ *   https://networklessons.com/uncategorized/pause-linux-process-with-sigstop-sigcont
  */
 void vrtule_4() {
 
-    int childs_cnt = 5;
+    char str[] = "-/|\\";
+    int childs_cnt = 8;
+
+    fprintf(stdout, "Vrtule 4 - fork - rodic synchronizuje praci deti\n");
+
     int childs[childs_cnt];
     pid_t pid = -1;
+    int idx = -1;
     for(int i = 0; i < childs_cnt; i++) {
         if(pid != 0) {
             pid = fork();
+            idx = i;
             childs[i] = pid;
         }
     }
     if(pid == 0) {
-        printf("!child %d\n", pid);
+        usleep(100000);
+        while(1) {
+            fprintf(stdout, "\r%c", str[idx % 4]);
+            fflush(stdout); // nutne vyprazdnit buffer pro kazdeho potomka
+            usleep(100000);
+        }
     } else {
-//        printf("?parent %d\n", pid);
+        while(1) {
+            // pri nespravnem nastaveni rychlosti muze nastat problem se vzorkovanim vypisu na strane bufferu
+            for(int i = 0; i < childs_cnt; i++) {
+                kill(childs[i], SIGCONT);
+                usleep(100000);
+                kill(childs[i], SIGSTOP);
+            }
+        }
     }
 
 }
