@@ -22,8 +22,8 @@
 
 
 #define SHM_SIZE 44 // 10 * sizeof(int) + sizeof(int)
-#define FIFO_NAME "myfifo"
 #define SHM_NAME "myshm"
+#define ARR_SIZE 10
 
 #define DEBUG
 
@@ -36,22 +36,29 @@
 int app_1();
 int app_2();
 
+/**
+ * https://www.geeksforgeeks.org/posix-shared-memory-api/
+ * @return
+ */
 int app_1() {
     debug("app_1 - start");
 //    int segment_id = shmget(IPC_PRIVATE, SHM_SIZE, S_IRUSR | S_IWUSR);
 //    int segment_id = shm_open(SHM_NAME, SHM_SIZE, S_IRUSR | S_IWUSR);
     int segment_id = shm_open(SHM_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    int size = sizeof(int) * ARR_SIZE + 1;
+    ftruncate(segment_id, size);
     int* shared_memory = (int*) shmat(segment_id, NULL, 0);
+    int* ptr;
+    /* memory map the shared memory object */
+    ptr = mmap(0, size, PROT_WRITE, MAP_SHARED, segment_id, 0);
 
-/*
-    for (int i = 0; i < 10; i++) {
-        shared_memory[i] = i;
-        shared_memory[10] += i;
+    /* write to the shared memory object */
+    for (int i = 0; i < ARR_SIZE; i++) {
+        ptr[i] = i;
+        ptr[ARR_SIZE] += i;
     }
-*/
 
-    sleep(10);
-//    shmdt(shared_memory);
+    sleep(2);
     shm_unlink(SHM_NAME);
     debug("app_2 - end");
     return 0;
@@ -62,14 +69,27 @@ int app_2() {
     sleep(1);
     int segment_id = shm_open(SHM_NAME, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     int* shared_memory = (int*) shmat(segment_id, NULL, 0);
+    int size = sizeof(int) * ARR_SIZE + 1;
 
-/*    int sum = 0;
-    for (int i = 0; i < 10; i++) {
-        sum += shared_memory[i];
-    }*/
+    /* shared memory file descriptor */
+    int shm_fd;
 
-//    shmdt(shared_memory);
-//    shmctl(segment_id, IPC_RMID, NULL);
+    /* pointer to shared memory object */
+    int* ptr;
+    shm_fd = shm_open(SHM_NAME, O_RDONLY, 0666);
+    debug("app_2 - mmap");
+
+    /* memory map the shared memory object */
+    ptr = mmap(0, size, PROT_READ, MAP_SHARED, shm_fd, 0);
+
+    debug("app_2 - sum");
+    /* read from the shared memory object */
+    int sum = ptr[ARR_SIZE];
+    debug("app_2 - sum2");
+    printf("app_2 - sum: %d\n", sum);
+
+    debug("app_2 - unlink");
+    shm_unlink(SHM_NAME);
     debug("app_2 - end");
     return 0;
 }
