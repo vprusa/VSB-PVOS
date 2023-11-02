@@ -1,0 +1,18 @@
+$ ./run.sh 
+DEBUG: main.c:84:app_1(): app_1 - start
+DEBUG: main.c:100:app_1(): app_1 - waiting for pid to appear 
+DEBUG: main.c:182:app_2(): app_2 - start
+app_2 - Receiver PID: 33761
+DEBUG: main.c:195:app_2(): app_2 - write current pid 33761 to shared memory for pid
+DEBUG: main.c:211:app_2(): app_2 - pause
+DEBUG: main.c:114:app_1(): app_1 - app_2 pid is 33761, going to write to shared memory....
+DEBUG: main.c:131:app_1(): app_1 - sum is 45, sending notify to app_2
+app_2 - Received signal 10
+DEBUG: main.c:153:signal_handler(): app_2 - mmap
+DEBUG: main.c:158:signal_handler(): app_2 - sum
+DEBUG: main.c:161:signal_handler(): app_2 - sum2
+app_2 - sum: 45
+DEBUG: main.c:163:signal_handler(): app_2 - sum_check - start
+DEBUG: main.c:170:signal_handler(): app_2 - sum_check_done - start
+app_2 - sum_check: 45 - OK
+$ DEBUG: main.c:141:app_1(): app_2 - end
