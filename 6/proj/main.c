@@ -139,6 +139,7 @@ int app_1() {
     sleep(2);
     shm_unlink(SHM_NAME);
     debug("app_2 - end");
+    // TODO readline_tout
     return 0;
 }
 
@@ -175,6 +176,7 @@ void signal_handler(int signum) {
         printf(" - KO");
     }
     printf("\n");
+    // TODO readline_tout
     exit(EXIT_SUCCESS);
 }
 
