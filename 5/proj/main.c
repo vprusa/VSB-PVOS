@@ -32,29 +32,31 @@
  *
  *    Naimplementujte si funkci readline_tout s vyrovnávacím bufferem. Maximálně se snažte,
  *    aby se funkce readline_tout chovala podobně, jako read.
- *        readline je programátorská etuda - implementace řady problémů
+ *        read_tout je programátorská etuda - implementace řady problémů
  *        může být vyrovnávací buffer lokální proměnná ve funkci/metodě?
  *        - záleží na implementaci, v případě užití singálů, které používají metody pro zpracování signálu bude použití
  *        -- jedné lokální proměnné zamezeno přístupem ke sdíleným datům
  *        může být pouze jeden buffer? Jak spárovat buffer a file descriptor?
  *        -- budeme-li používat globální promennou napříč voláním `main` i funkce `sighandleru`, které sdílí svá datat,
- *        -- tak není nutno pouřívat file
+ *        -- tak není nutno používat file
  *        test: echo -en " jojo nene " | ./readline_tout
  *        test: while true; do echo -en " jojo nene "; sleep 1; done | ./readline_tout
  *        co když je řádek delší než buffer?'
- *        - pak buffer načte své maximum a zbytek zahodí, v návratové kódu bude indikace BUFFER overflow,
- *        --- program může mít vstupní parametr vlaječky určující striktost vůči přetečení bufferu a způsob vyřízení
- *        --- této situace
+ *        - pak buffer načte své maximum a zbytek
+ *        --- a) zahodí, v návratové kódu bude indikace BUFFER overflow,
+ *        ----- program může mít vstupní parametr vlaječky určující striktost vůči přetečení bufferu a způsob vyřízení
+ *        ----- této situace
+ *        --- b) vypíše obsah bufferu a opakuje zbytek čtení
  *        může se přepsat na konci řádku?
  *        - pro náš případ ne a nejsem si vědom, že bych se s touto situací prakticky setkal.
- *        -- teoreticky je možné kdeco. např. přepsat buffer na konci řádku bude-li nastaveno parametrem vlaječky atp.
+ *        -- teoreticky je možné např. přepsat buffer na konci řádku bude-li nastaveno parametrem vlaječky atp.
  *        -- v tomto případě je možné, že bude nutné hlídat mazání textu za běhu, zbytek operace by byl stejný
  *        co na konci souboru?
  *        - podobně u konce souboru, ale je to neobvyklá situace
  *        -- s touto situací se jde prakticky setkat bude-li se číst *.log, do kterého byl zpasán výstup např. `clear`
- *        -- operace
+ *        -- operace nebo EOF značka
  *       když nastane timeout, co s neúplnými daty v bufferu?
- *       -- nastavitelné chování parameterm vlaječky: a) smařu, b) vypíšu; a pro obě možnosti parametrizace vlaječkami
+ *       -- nastavitelné chování parameterm vlaječky: a) smažu, b) vypíšu; a pro obě možnosti parametrizace vlaječkami
  */
 
 #define SHM_SIZE 44 // 10 * sizeof(int) + sizeof(int)
@@ -62,7 +64,9 @@
 #define SHM_NAME_PID "myshmpid"
 #define ARR_SIZE 10
 
-#define BUFFER_SIZE 2048
+#define BUFFER_SIZE 3
+#define TIMEOUT 3000
+//#define TIMEOUT 2000
 
 #define DEBUG
 
@@ -75,87 +79,121 @@
 
 static volatile char buffer[BUFFER_SIZE];
 
-int readline( int fd, void *ptr, int len, int tout_ms);
+int read_tout(int fd, void *ptr, int len, int tout_ms, int flags);
 
 int main(int argc, char *argv[]) {
-//    int fd;
-    int timelimit = 5000;
-//    int mknod(const char * pathname , mode_t mode, dev_t dev);
-//    int mkfifo(const char * pathname , mode_t mode);
-//    int result =  mkfifo("mypipe", O_RDWR);
 
-    char buffer[BUFFER_SIZE];
-    ssize_t bytes_read;
 
-    // Continuously read from stdin and print the data to stdout
-    while ((bytes_read = read(STDIN_FILENO, buffer, BUFFER_SIZE)) > 0) {
-        write(STDOUT_FILENO, buffer, bytes_read);
-    }
+    // obalim drivejsi implementaci readline_tout
+    // pro vyporadani se s max velikosti bufferu postupym vypisovani jeho obsahu
+    int buffers_read_cnt = 0;
 
-    if (bytes_read == -1) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    }
+    int cur_timeout = TIMEOUT;
 
+    struct timeval timeout;
+    struct timeval now;
+    struct timeval endtime;
+
+    // nastaveni casoveho limitu
+    gettimeofday(&now, NULL);
+    timeout.tv_sec = cur_timeout / 1000;
+    timeout.tv_usec = (cur_timeout % 1000) * 1000;
+    timeradd(&now, &timeout, &endtime);
+
+    // aktualizuji cas
+    gettimeofday(&now, NULL);
+    timersub(&endtime, &now, &timeout);
+
+
+    int fd = STDIN_FILENO;
+
+    int last_char_backspace = 0;
+
+    while(1) {
+
+
+        // nastaveni flajecek dekstiprotu
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags == -1) {
+            // nepovedlo se nastavit vlajecky deksriptoru a tak neuspesne ukoncuji cteni
+            return -1;
+        }
+
+        // nastaveni neblokujicich operaci nad souborem
+        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+            return -1; // pokud se nepovede ukoncuji cteni
+        }
+
+        // read to buffer
+        int result = read_tout(fd, buffer, sizeof(buffer) - 1, cur_timeout, flags);
+
+        // vyhodnoceni vystupu
+        if (result == -1) {
+            if (errno == ETIMEDOUT) {
+                // no timout
+                // perror("read_tout - timeout\n");
+            } else {
+                perror("read_tout - chyba pri cteni\n");
+            }
+        } else if (result == 0) {
+            // waiting
+//            fflush(stdout);
+        } else {
+            buffer[result] = '\0';  // ukončení řetězce
+            // vypisi co je v bufferu
+//            printf("read size %d, %s\n", result, buffer);
+            // if the end is reached finish
+
+            if(last_char_backspace == 1) {
+                if(
 /*
-    int fd;
-//    char buffer[BUFFER_SIZE];
-    ssize_t bytes_read;
-
-    // Open the FIFO for reading
-//    fd = open("/tmp/myfifo", O_RDONLY);
-//    if (fd == -1) {
-//        perror("open");
-//        exit(EXIT_FAILURE);
-//    }
-
-    // Continuously read from FIFO and print the data to standard output
-    while (1) {
-//        bytes_read = read(fd, buffer, BUFFER_SIZE);
-        if (bytes_read > 0) {
-//            write(STDOUT_FILENO, buffer, bytes_read);
-            printf("res (%d): %s\n", bytes_read, buffer);
-        } else if (bytes_read == 0) {
-            // No more data, the writing side of the FIFO was closed
-            break;
-        } else {
-            // An error occurred
-            perror("read");
-//            close(fd);
-//            exit(EXIT_FAILURE);
-        }
-    }
-
-    close(fd);
+                        buffer[result-1] == '\n' ||
+                        buffer[result-1] == '\r' ||
+                        buffer[result-1] == '\\' ||
+                        buffer[result-1] == '\0'
 */
-    // pro testovaci ucely testovaci soubor, pozdeji nutne resit cekani
-    // fd = open("test.txt", O_RDONLY);
-    // dalsi moznost je pouzit tty dle: `stty -F /dev/tty -icanon`
-    /*fd = open("/dev/tty", O_RDONLY);
-    if (fd == -1) {
-        perror("open");
-        return 1;
-    }
+    //                    buffer[result] == '\0'
+                        buffer[result-1] == 'n' ||
+                        buffer[result-1] == 'r' ||
+//                        buffer[result-1] == '\\' ||
+                        buffer[result-1] == '0'
+                ) {
+                    fprintf(stdout, "%s", buffer);
+                    fflush(stdout);
+                    break;
+                }
+            }
 
-    int result = readline(fd, buffer, sizeof(buffer) - 1, timelimit);
-
-    // vyhodnoceni vystupu
-    if (result == -1) {
-        if (errno == ETIMEDOUT) {
-            printf("\nreadline - chyba pri cteni - dosazen timelimit: %d\n", timelimit);
-            perror("readline - timeout\n");
-//            perror("readline - chyba pri cteni - dosazen timelimit: %d\n", timelimit);
-        } else {
-            perror("readline - chyba pri cteni\n");
+            if(buffer[result-1] == '\\') {
+                last_char_backspace = 1;
+            } else {
+                last_char_backspace = 0;
+            }
+            fprintf(stdout, "%s", buffer);
+            fflush(stdout);
         }
-    } else if (result == 0) {
-        perror("prazdny vstup\n");
-    } else {
-        buffer[result] = '\0';  // ukončení řetězce
-        printf("Vystup: %s\n", buffer);
-    }
+//        buffers_read_cnt++;
+//        fflush(stdout);
 
-    close(fd);*/
+        // aktualizuji cas
+        gettimeofday(&now, NULL);
+        timersub(&endtime, &now, &timeout);
+
+        // pokud vyprsel casovy limit nebo doslo k chybe, tak ukoncuji cteni
+        if (timeout.tv_sec < 0 || (timeout.tv_sec == 0 && timeout.tv_usec <= 0)) {
+            errno = ETIMEDOUT;
+            // pokud vyprsel timout neuspesne ukoncuji cteni
+            fcntl(fd, F_SETFL, flags);
+            // no timeout info
+            // perror("read_tout - timeout\n");
+            return -2;
+        } else {
+            cur_timeout = timeout.tv_usec;
+//            printf("to: %d\n", cur_timeout);
+        }
+
+    }
+    close(fd);
     return 0;
 }
 
@@ -168,7 +206,7 @@ int main(int argc, char *argv[]) {
  * @param tout_ms
  * @return
  */
-int readline( int fd, void *ptr, int len, int tout_ms) {
+int read_tout(int fd, void *ptr, int len, int tout_ms, int flags) {
     // inicializace promennych
     int retval;
     int bytes_read = 0; // pocet prectenych bytu
@@ -181,17 +219,6 @@ int readline( int fd, void *ptr, int len, int tout_ms) {
 
     // promenna pro mnozinu deskriptoru ze kterych se cte
     fd_set rfds;
-
-    // nastaveni flajecek dekstiprotu
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        // nepovedlo se nastavit vlajecky deksriptoru a tak neuspesne ukoncuji cteni
-        return -1;
-    }
-    // nastaveni neblokujicich operaci nad souborem
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        return -1; // pokud se nepovede ukoncuji cteni
-    }
 
     // nastaveni casoveho limitu
     gettimeofday(&now, NULL);
@@ -238,11 +265,16 @@ int readline( int fd, void *ptr, int len, int tout_ms) {
             } else if (
                     n == 0 ||
                     ((char *)ptr + bytes_read)[0] == '\n' ||
-                    ((char *)ptr + bytes_read)[0] == '\r'
-                    ) {
+                    ((char *)ptr + bytes_read)[0] == '\r' ||
+                    ((char *)ptr + bytes_read)[0] == '\0'
+            ) {
                 // uspesne cteni, ale konec souboru
-                char * last_char = ((char *)(ptr + bytes_read + n));
+                char * last_char = ((char *)(ptr + bytes_read + n ));
                 last_char[0]= '\0';
+                // TODO fix if last char is '\' and next is '\n' it is not written as '\n'
+                //  but as spearate characters'\''n'
+//                char single[1];
+//                int single_res = read_tout(fd, single, 1, tout_ms, flags);
                 break;
             } else {
                 // zvendu hodnotu citace prectenych znaku hodnotu naposledy prectenych znaku
@@ -255,6 +287,7 @@ int readline( int fd, void *ptr, int len, int tout_ms) {
             return -1;
         }
     }
+//    printf("read size %d, %s\n", n, ptr);
 
     // vratim rezim souboru do puvodniho stavu
     if (fcntl(fd, F_SETFL, flags) == -1) {
