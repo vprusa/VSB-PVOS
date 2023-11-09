@@ -21,8 +21,8 @@
  *    kde bude 10 čísel a jejich součet.
  *    b) Druhá aplikace provede kontrolu.
  *    b.1) Notifikace pomocí pojmenované roury.
- *    b.2) Data int *pole, struct data { char [11][20]; }  TODO wtf
- *    b.3) Dokončete readline. TODO wtf
+ *    b.2) Data int *pole, struct data { char [11][20]; }
+ *    b.3) Dokončete readline.
  */
 
 /**
@@ -60,7 +60,6 @@
  * poli
  *
  */
-#define SHM_SIZE 44 // 10 * sizeof(int) + sizeof(int)
 #define SHM_NAME "myshm"
 #define SHM_NAME_PID "myshmpid"
 #define ARR_SIZE 10
@@ -82,7 +81,6 @@ int app_2();
  */
 int app_1() {
     debug("app_1 - start");
-
 
     /* get pid of app_2 and send notification to it */
 
@@ -197,7 +195,6 @@ int app_2() {
     debug("app_2 - write current pid %d to shared memory for pid", getpid());
 
 //     write pid to shared memory (and wait till it is read)
-//    while(1) {
     int segment_id_pid = shm_open(SHM_NAME_PID, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     int size_pid = sizeof(int);
     ftruncate(segment_id_pid, size_pid);
@@ -207,50 +204,12 @@ int app_2() {
 
     /* write current pid to the shared memory object */
     ptr_pid[0] = getpid();
-//        sleep(1);
-//        break;
-//    }
     debug("app_2 - pause");
     /* read from the shared memory object */
     // Wait for the signal indefinitely
     while (1) {
         pause();
     }
-
-/*
-    sleep(1);
-    int size = sizeof(int) * ARR_SIZE + 1;
-
-
-    int shm_fd; // shared memory file descriptor
-    int* ptr; // pointer to shared memory object
-    shm_fd = shm_open(SHM_NAME, O_RDONLY, 0666);
-    debug("app_2 - mmap");
-
-    *//* memory map the shared memory object *//*
-    ptr = mmap(0, size, PROT_READ, MAP_SHARED, shm_fd, 0);
-
-    debug("app_2 - sum");
-    *//* read from the shared memory object *//*
-    int sum = ptr[ARR_SIZE];
-    debug("app_2 - sum2");
-    printf("app_2 - sum: %d\n", sum);
-    debug("app_2 - sum_check - start");
-
-    int sum_check = 0;
-    *//* read and sum check *//*
-    for (int i = 0; i < ARR_SIZE; i++) {
-        sum_check += ptr[i];
-    }
-    debug("app_2 - sum_check_done - start");
-    printf("app_2 - sum_check: %d", sum_check);
-    if(sum == sum_check) {
-        printf(" - OK");
-    }else{
-        printf(" - KO");
-    }
-    printf("\n");*/
-
     debug("app_2 - unlink");
     shm_unlink(SHM_NAME);
     debug("app_2 - end");

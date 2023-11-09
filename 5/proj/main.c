@@ -65,7 +65,7 @@
 #define ARR_SIZE 10
 
 #define BUFFER_SIZE 3
-#define TIMEOUT 3000
+#define TIMEOUT 15000
 //#define TIMEOUT 2000
 
 #define DEBUG
@@ -137,26 +137,17 @@ int main(int argc, char *argv[]) {
             }
         } else if (result == 0) {
             // waiting
-//            fflush(stdout);
+            fflush(stdout);
         } else {
             buffer[result] = '\0';  // ukončení řetězce
             // vypisi co je v bufferu
-//            printf("read size %d, %s\n", result, buffer);
             // if the end is reached finish
 
             if(last_char_backspace == 1) {
                 if(
-/*
                         buffer[result-1] == '\n' ||
                         buffer[result-1] == '\r' ||
-                        buffer[result-1] == '\\' ||
                         buffer[result-1] == '\0'
-*/
-    //                    buffer[result] == '\0'
-                        buffer[result-1] == 'n' ||
-                        buffer[result-1] == 'r' ||
-//                        buffer[result-1] == '\\' ||
-                        buffer[result-1] == '0'
                 ) {
                     fprintf(stdout, "%s", buffer);
                     fflush(stdout);

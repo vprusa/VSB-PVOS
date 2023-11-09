@@ -14,6 +14,7 @@ gcc "${MAIN_FILE}" -o "${OUT_FILE}"
 #echo -en " . jojo nene .  \n" | ./${OUT_FILE}
 #echo -en " , jojo nene ,  \r" | ./${OUT_FILE}
 #echo -en " - jojo nene - " | ./${OUT_FILE}
-#echo -en " + jojo nene + " | ./${OUT_FILE}
+echo -en " + jojo nene + \n" | ./${OUT_FILE}
+echo -en " + jojo nene + " | ./${OUT_FILE}
 
 while true; do echo -en "! jojo nene ?"; sleep 1; done | ./${OUT_FILE}
