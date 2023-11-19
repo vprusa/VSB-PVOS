@@ -194,7 +194,62 @@ int app_1(int app_1_cnt) {
  */
 int app_2() {
     debug(GREEN_COLOR "  app_2: " RESET_COLOR "Started...");
-   
+    // Attempt to find the existing shared memory segment
+    int shm_id = shmget(SHM_KEY, sizeof(struct Crate), IPC_CREAT | 0666);
+    if (shm_id == -1) {
+        perror("shmget");
+        return 1;
+    }
+
+    struct Crate *crate = (struct Crate *)shmat(shm_id, NULL, 0);
+    if (crate == (struct Crate *)(-1)) {
+        perror("shmat");
+        return 1;
+    }
+
+    // Create or get System V message queue
+    int msgq_id = msgget(SHM_KEY, IPC_CREAT | 0666);
+    if (msgq_id == -1) {
+        perror("msgget");
+        return 1;
+    }
+
+    // Message structure for receiving crate information
+    struct CrateMessage crateMsg;
+
+    int counter = APP_2_MAX_COUNTER; // Initialize the counter
+    while (counter > 0) {
+        debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Waiting for permission to proceed...");
+
+        // Wait for permission to proceed using System V message queue
+        if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 2, 0) == -1) {
+            perror("msgrcv");
+            return 1;
+        }
+        debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Proceeding...");
+
+        if (crate->current_load > 0) {
+            crate->current_load--;
+            debug(ORANGE_COLOR "app_2: " RESET_COLOR "Emptying crate, current load: %d/%d",
+                  crate->current_load, crate->capacity);
+        } else {
+            debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Empty crate");
+        }
+
+        // Signal completion of the task using System V message queue
+        crateMsg.mtype = 1; // Message type 1 for completion
+        if (msgsnd(msgq_id, &crateMsg, sizeof(struct Crate), 0) == -1) {
+            perror("msgsnd");
+            return 1;
+        }
+
+        counter--; // Decrement the counter
+        sleep(1);
+    }
+
+    // Detach shared memory
+    shmdt(crate);
+
     return 0;
 }
 
