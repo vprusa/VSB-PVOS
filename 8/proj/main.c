@@ -45,15 +45,11 @@
 
 // Key for the shared memory and semaphore set
 #define SHM_KEY 1234
-#define SEM_KEY 5678
-
-#define X_SEM_NAME "/x_sem"  // Unique name for the POSIX semaphore
 
 // Structure for the crate
 struct Crate {
     int capacity;
     int current_load;
-    int sem_id;
 };
 
 // Structure for the message containing crate information
@@ -123,15 +119,6 @@ int app_1(int app_1_cnt) {
         while (counter > 0) {
             debug(GREEN_COLOR "   app_1: " RESET_COLOR "While...");
 
-//            // Wait for permission to proceed using System V message queue
-////            if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 1, 0) == -1) {
-//            if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 1, 0) == -1) {
-//                perror("msgrcv");
-//                debug(GREEN_COLOR "   app_1: " RESET_COLOR "msgrcv - error...");
-//                return 1;
-//            }
-            debug(GREEN_COLOR "   app_1: " RESET_COLOR "Proceeding...");
-
             if (crate->current_load < crate->capacity) {
                 crate->current_load++;
                 debug( GREEN_COLOR "app_1: " RESET_COLOR "Filling the crate, current load: %d/%d",
@@ -198,11 +185,9 @@ int app_2() {
     while (counter > 0) {
         debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Waiting for permission to proceed...");
 
-//        // Wait for permission to proceed using System V message queue
+        // Wait for permission to proceed using System V message queue
         if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 2, 0) == -1) {
             debug(ORANGE_COLOR "  app_2: " RESET_COLOR "No message...");
-//            perror("msgrcv");
-//            return 1;
         }
         debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Proceeding...");
 
@@ -213,14 +198,6 @@ int app_2() {
         } else {
             debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Empty crate");
         }
-
-        // Signal completion of the task using System V message queue
-//        crateMsg.mtype = 1; // Message type 1 for completion
-//        if (msgsnd(msgq_id, &crateMsg, sizeof(struct Crate), 0) == -1) {
-//            perror("msgsnd");
-//            return 1;
-//        }
-
         counter--; // Decrement the counter
         sleep(1);
     }
@@ -273,11 +250,7 @@ int app_1_X(int app_1_cnt) {
 
     while (app_1_cnt > 0) {
 
-//        crate.capacity = MAX_CAPACITY;
-//        crate.current_load = 0;
-//        crateMsg.mtype = 1; // Message type 1
-//        crateMsg.crate = crate;
-
+        // Create or open POSIX message queue
         crate_mq = mq_open("/crate_mq_X", O_CREAT | O_RDWR | O_NONBLOCK, 0666, &attr);
         if (crate_mq == (mqd_t)-1) {
             perror("mq_open");
@@ -290,11 +263,6 @@ int app_1_X(int app_1_cnt) {
         while (counter > 0) {
             debug(BRIGHT_CYAN_COLOR "   app_1_X: " RESET_COLOR "While...");
 
-//            // Wait for permission to proceed using POSIX message queue
-//            if (mq_receive(crate_mq, (char*)&crateMsg, sizeof(struct CrateMessage), NULL) == -1) {
-//                perror("mq_receive");
-//                return 1;
-//            }
             crate = crateMsg.crate;
             debug(BRIGHT_CYAN_COLOR "   app_1_X: " RESET_COLOR "Proceeding...");
 
@@ -368,8 +336,6 @@ int app_2_X() {
         // Wait for permission to proceed using POSIX message queue
         if (mq_receive(crate_mq, (char*)&crateMsg, sizeof(struct CrateMessage), NULL) == -1) {
             debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "No message...");
-//            perror("mq_receive");
-//            return 1;
         }
         crate = crateMsg.crate;
         debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "Proceeding...");
@@ -385,10 +351,6 @@ int app_2_X() {
         // Signal completion of the task using POSIX message queue
         crateMsg.mtype = 2; // Message type 2 for completion
         crateMsg.crate = crate;
-//        if (mq_send(crate_mq, (const char*)&crateMsg, sizeof(struct CrateMessage), 0) == -1) {
-//            perror("mq_send");
-//            return 1;
-//        }
 
         counter--; // Decrement the counter
         sleep(1);
