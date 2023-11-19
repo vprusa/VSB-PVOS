@@ -21,6 +21,16 @@
 #include <sys/shm.h>
 #include <semaphore.h>  // Include POSIX semaphore library
 #include <sys/sem.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/types.h>
+#include <sys/msg.h>
+#include <string.h>
+#include <semaphore.h>
 
 /**
  * Zadani:
@@ -69,6 +79,12 @@ struct Crate {
     int sem_id;
 };
 
+// Structure for the message containing crate information
+struct CrateMessage {
+    long mtype; // Message type
+    struct Crate crate; // Crate information
+};
+
 int app_1(int app_1_cnt);
 int app_2();
 
@@ -82,6 +98,93 @@ int app_2_X();
  */
 int app_1(int app_1_cnt) {
     debug(ORANGE_COLOR "  app_1: " RESET_COLOR "Started...");
+    // Attempt to find the existing shared memory segment
+    int shm_id = shmget(SHM_KEY, sizeof(struct Crate), IPC_CREAT | 0666);
+    if (shm_id == -1) {
+        perror("shmget");
+        return 1;
+    }
+
+    struct Crate *crate = (struct Crate *)shmat(shm_id, NULL, 0);
+    if (crate == (struct Crate *)(-1)) {
+        perror("shmat");
+        return 1;
+    }
+
+    // Initialize the crate
+    crate->current_load = 0;
+    crate->capacity = MAX_CAPACITY;
+
+    // Create or get System V message queue
+    int msgq_id = msgget(SHM_KEY, IPC_CREAT | 0666);
+    if (msgq_id == -1) {
+        perror("msgget");
+        return 1;
+    }
+
+    // Reset the message queue to ensure it starts "filling the crate" if it doesn't exist
+    if (msgctl(msgq_id, IPC_RMID, NULL) == -1) {
+        perror("msgctl");
+        return 1;
+    }
+
+    // Create a new message queue
+    msgq_id = msgget(SHM_KEY, IPC_CREAT | 0666);
+    if (msgq_id == -1) {
+        perror("msgget");
+        return 1;
+    }
+
+    // Message structure for sending crate information
+    struct CrateMessage crateMsg;
+    crateMsg.mtype = 1; // Message type 1
+
+    while (app_1_cnt > 0) {
+        debug(GREEN_COLOR "   app_1: " RESET_COLOR "Waiting for permission to proceed...");
+
+        int counter = APP_1_MAX_COUNTER; // Initialize the counter
+        while (counter > 0) {
+            debug(GREEN_COLOR "   app_1: " RESET_COLOR "While...");
+
+//            // Wait for permission to proceed using System V message queue
+////            if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 1, 0) == -1) {
+//            if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 1, 0) == -1) {
+//                perror("msgrcv");
+//                debug(GREEN_COLOR "   app_1: " RESET_COLOR "msgrcv - error...");
+//                return 1;
+//            }
+            debug(GREEN_COLOR "   app_1: " RESET_COLOR "Proceeding...");
+
+            if (crate->current_load < crate->capacity) {
+                crate->current_load++;
+                debug( GREEN_COLOR "app_1: " RESET_COLOR "Filling the crate, current load: %d/%d",
+                      crate->current_load, crate->capacity);
+            } else {
+                debug("  " GREEN_COLOR "app_1: " RESET_COLOR "Exchanging the crate");
+            }
+
+            // Signal completion of the task using System V message queue
+            crateMsg.mtype = 2; // Message type 2 for completion
+            if (msgsnd(msgq_id, &crateMsg, sizeof(struct Crate), 0) == -1) {
+                perror("msgsnd");
+                return 1;
+            }
+
+            counter--; // Decrement the counter
+            usleep(100000);
+        }
+        sleep(5);
+        app_1_cnt--;
+    }
+
+    // Detach shared memory
+    shmdt(crate);
+
+    // Remove the message queue
+    if (msgctl(msgq_id, IPC_RMID, NULL) == -1) {
+        perror("msgctl");
+        return 1;
+    }
 
     return 0;
 }
@@ -91,7 +194,7 @@ int app_1(int app_1_cnt) {
  */
 int app_2() {
     debug(GREEN_COLOR "  app_2: " RESET_COLOR "Started...");
-
+   
     return 0;
 }
 
