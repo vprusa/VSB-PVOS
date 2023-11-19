@@ -1,36 +1,13 @@
 #include <stdio.h>
 
-#include <stdio.h>
 #include <sys/shm.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/mman.h>
-#include <sys/stat.h>        /* For mode constants */
-#include <fcntl.h>           /* For O_* constants */
-// sender.c
-#include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <sys/ipc.h>
-#include <sys/shm.h>
-#include <semaphore.h>  // Include POSIX semaphore library
-#include <sys/sem.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/sem.h>
-#include <sys/types.h>
 #include <sys/msg.h>
 #include <string.h>
-#include <semaphore.h>
+#include <mqueue.h>
 
 /**
  * Zadani:
@@ -62,7 +39,7 @@
 #endif
 
 // Maximum capacity of the crate
-#define MAX_CAPACITY 3
+#define MAX_CAPACITY 4
 #define APP_1_MAX_COUNTER 10
 #define APP_2_MAX_COUNTER 10
 
@@ -173,7 +150,7 @@ int app_1(int app_1_cnt) {
             counter--; // Decrement the counter
             usleep(100000);
         }
-        sleep(5);
+        sleep(2);
         app_1_cnt--;
     }
 
@@ -221,10 +198,11 @@ int app_2() {
     while (counter > 0) {
         debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Waiting for permission to proceed...");
 
-        // Wait for permission to proceed using System V message queue
+//        // Wait for permission to proceed using System V message queue
         if (msgrcv(msgq_id, &crateMsg, sizeof(struct Crate), 2, 0) == -1) {
-            perror("msgrcv");
-            return 1;
+            debug(ORANGE_COLOR "  app_2: " RESET_COLOR "No message...");
+//            perror("msgrcv");
+//            return 1;
         }
         debug(ORANGE_COLOR "  app_2: " RESET_COLOR "Proceeding...");
 
@@ -237,11 +215,11 @@ int app_2() {
         }
 
         // Signal completion of the task using System V message queue
-        crateMsg.mtype = 1; // Message type 1 for completion
-        if (msgsnd(msgq_id, &crateMsg, sizeof(struct Crate), 0) == -1) {
-            perror("msgsnd");
-            return 1;
-        }
+//        crateMsg.mtype = 1; // Message type 1 for completion
+//        if (msgsnd(msgq_id, &crateMsg, sizeof(struct Crate), 0) == -1) {
+//            perror("msgsnd");
+//            return 1;
+//        }
 
         counter--; // Decrement the counter
         sleep(1);
@@ -253,6 +231,8 @@ int app_2() {
     return 0;
 }
 
+mqd_t crate_mq;
+
 /*
  *  1.  Jeden (program) proces bude plnit přepravku výrobky, přepravka a její stav je součástí zprávy.
  *      Do přepravky může v dané chvíli přistupovat jen jeden proces.
@@ -261,6 +241,96 @@ int app_2() {
 int app_1_X(int app_1_cnt) {
     debug(BRIGHT_CYAN_COLOR "  app_1_X: " RESET_COLOR "Started...");
 
+    // Create or open POSIX message queue
+    struct mq_attr attr;
+    // Set maximum number of messages to MAX_CAPACITY same as the crate capacity
+    attr.mq_maxmsg = MAX_CAPACITY;
+    attr.mq_msgsize = sizeof(struct CrateMessage);
+
+    crate_mq = mq_open("/crate_mq_X", O_CREAT | O_RDWR | O_NONBLOCK, 0666, &attr);
+    if (crate_mq == (mqd_t)-1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    // Message structure for sending crate information
+    struct Crate crate;
+    crate.capacity = MAX_CAPACITY;
+    crate.current_load = 0;
+
+    struct CrateMessage crateMsg;
+    crateMsg.mtype = 1; // Message type 1
+    crateMsg.crate = crate;
+
+    // Reset the crate queue before entering the first while loop
+    while (mq_receive(crate_mq, (char*)&crateMsg, sizeof(struct CrateMessage), NULL) != -1) {
+        debug(BRIGHT_CYAN_COLOR "  app_1_X: " RESET_COLOR "Clearing previous crate messages...");
+    }
+
+    // Close and unlink POSIX message queue
+    mq_close(crate_mq);
+    mq_unlink("/crate_mq_X");
+
+    while (app_1_cnt > 0) {
+
+//        crate.capacity = MAX_CAPACITY;
+//        crate.current_load = 0;
+//        crateMsg.mtype = 1; // Message type 1
+//        crateMsg.crate = crate;
+
+        crate_mq = mq_open("/crate_mq_X", O_CREAT | O_RDWR | O_NONBLOCK, 0666, &attr);
+        if (crate_mq == (mqd_t)-1) {
+            perror("mq_open");
+            return 1;
+        }
+
+        debug(BRIGHT_CYAN_COLOR "   app_1_X: " RESET_COLOR "Waiting for permission to proceed...");
+
+        int counter = APP_1_MAX_COUNTER; // Initialize the counter
+        while (counter > 0) {
+            debug(BRIGHT_CYAN_COLOR "   app_1_X: " RESET_COLOR "While...");
+
+//            // Wait for permission to proceed using POSIX message queue
+//            if (mq_receive(crate_mq, (char*)&crateMsg, sizeof(struct CrateMessage), NULL) == -1) {
+//                perror("mq_receive");
+//                return 1;
+//            }
+            crate = crateMsg.crate;
+            debug(BRIGHT_CYAN_COLOR "   app_1_X: " RESET_COLOR "Proceeding...");
+
+            if (crate.current_load < crate.capacity) {
+                crate.current_load++;
+                debug(BRIGHT_CYAN_COLOR "app_1_X: " RESET_COLOR "Filling the crate, current load: %d/%d",
+                      crate.current_load, crate.capacity);
+
+                // Signal completion of the task using POSIX message queue
+                crateMsg.mtype = 2; // Message type 2 for completion
+                crateMsg.crate = crate;
+                // Sends message to queue with priority of current load to force FIFO queue
+                if (mq_send(crate_mq, (const char*)&crateMsg, sizeof(struct CrateMessage),
+                            crate.current_load) == -1) {
+                    perror("mq_send");
+                    return 1;
+                }
+
+            } else {
+                debug("  " BRIGHT_CYAN_COLOR "app_1_X: " RESET_COLOR "Exchanging the crate");
+            }
+
+
+            counter--; // Decrement the counter
+            usleep(100000);
+        }
+        sleep(2);
+        app_1_cnt--;
+        // Close and unlink POSIX message queue
+        mq_close(crate_mq);
+        mq_unlink("/crate_mq_X");
+    }
+
+    // Close and unlink POSIX message queue
+    mq_close(crate_mq);
+    mq_unlink("/crate_mq_X");
     return 0;
 }
 
@@ -271,6 +341,62 @@ int app_2_X() {
     // sanity wait
     sleep(1);
     debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "Started...");
+
+    // Create or open POSIX message queue
+    struct mq_attr attr;
+    // Set maximum number of messages to MAX_CAPACITY same as the crate capacity
+    attr.mq_maxmsg = MAX_CAPACITY;
+    attr.mq_msgsize = sizeof(struct CrateMessage);
+
+    crate_mq = mq_open("/crate_mq_X", O_CREAT | O_RDWR | O_NONBLOCK, 0666, &attr);
+    if (crate_mq == (mqd_t)-1) {
+        perror("mq_open");
+        return 1;
+    }
+
+    struct Crate crate;
+    crate.capacity = MAX_CAPACITY;
+    crate.current_load = 0;
+
+    struct CrateMessage crateMsg;
+    crateMsg.mtype = 1; // Message type 1
+
+    int counter = APP_2_MAX_COUNTER; // Initialize the counter
+    while (counter > 0) {
+        debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "Waiting for permission to proceed...");
+
+        // Wait for permission to proceed using POSIX message queue
+        if (mq_receive(crate_mq, (char*)&crateMsg, sizeof(struct CrateMessage), NULL) == -1) {
+            debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "No message...");
+//            perror("mq_receive");
+//            return 1;
+        }
+        crate = crateMsg.crate;
+        debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "Proceeding...");
+
+        if (crate.current_load > 0) {
+            crate.current_load--;
+            debug(MAGNETA_COLOR "app_2_X: " RESET_COLOR "Emptying crate, current load: %d/%d",
+                  crate.current_load, crate.capacity);
+        } else {
+            debug(MAGNETA_COLOR "  app_2_X: " RESET_COLOR "Empty crate");
+        }
+
+        // Signal completion of the task using POSIX message queue
+        crateMsg.mtype = 2; // Message type 2 for completion
+        crateMsg.crate = crate;
+//        if (mq_send(crate_mq, (const char*)&crateMsg, sizeof(struct CrateMessage), 0) == -1) {
+//            perror("mq_send");
+//            return 1;
+//        }
+
+        counter--; // Decrement the counter
+        sleep(1);
+    }
+
+    // Close and unlink POSIX message queue
+    mq_close(crate_mq);
+    mq_unlink("/crate_mq_X");
 
     return 0;
 }
