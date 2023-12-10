@@ -40,6 +40,9 @@
 
 // debug flag
 int g_debug = LOG_INFO;
+int g_socket = 1;
+int g_ipv4 = 0;
+int g_ipv6 = 0;
 
 void log_msg( int t_log_level, const char *t_form, ... )
 {
@@ -80,8 +83,11 @@ void help( int t_narg, char **t_args )
             "\n"
             "  Socket client example.\n"
             "\n"
-            "  Use: %s [-h -d] ip_or_name port_number\n"
+            "  Use: %s [-h -d -4 -6 -s] ip_or_name port_number\n"
             "\n"
+            "    -s  socket (default, priority 1)\n"
+            "    -4  IPv4 (priority 2)\n"
+            "    -6  IPv6 (priority 3)\n"
             "    -d  debug mode \n"
             "    -h  this help\n"
             "\n", t_args[ 0 ] );
@@ -106,6 +112,19 @@ int main( int t_narg, char **t_args )
     // parsing arguments
     for ( int i = 1; i < t_narg; i++ )
     {
+
+        if ( !strcmp( t_args[ i ], "-s" ) ) {
+            g_socket = 1;
+        }
+
+        if ( !strcmp( t_args[ i ], "-4" ) ) {
+            g_ipv4 = 1;
+        }
+
+        if ( !strcmp( t_args[ i ], "-6" ) ) {
+            g_ipv6 = 1;
+        }
+
         if ( !strcmp( t_args[ i ], "-d" ) )
             g_debug = LOG_DEBUG;
 
@@ -118,6 +137,14 @@ int main( int t_narg, char **t_args )
                 l_host = t_args[ i ];
             else if ( !l_port )
                 l_port = atoi( t_args[ i ] );
+        }
+
+        if (g_socket == 1) {
+            g_ipv4 = 0;
+            g_ipv6 = 0;
+        }
+        if (g_ipv4 == 1) {
+            g_ipv6 = 0;
         }
     }
 

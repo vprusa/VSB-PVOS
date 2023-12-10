@@ -6,30 +6,34 @@
 
 # TODO ...
 
-MAIN_FILE=main.c
-OUT_FILE=main
+MAIN_CL_FILE=socket_cl.cpp
+OUT_CL_FILE=socket_cl
 
-gcc "${MAIN_FILE}" -o "${OUT_FILE}"
+MAIN_SRV_FILE=socket_srv.cpp
+OUT_SRV_FILE=socket_srv
 
-stty -F /dev/tty -icanon
+gcc "${MAIN_CL_FILE}" -o "${OUT_CL_FILE}"
+gcc "${MAIN_SRV_FILE}" -o "${OUT_SRV_FILE}"
+
+#stty -F /dev/tty -icanon
 
 #./${OUT_FILE} '1' & disown
 ##./${OUT_FILE} '1'
 #./${OUT_FILE} '2'
 
-if [[ -n "${1}" && "${1}" = *"X"* ]]; then
-  ./${OUT_FILE} '1' 'X' '2' & disown
-#  ./${OUT_FILE} '1' 'X' '2'
-  ./${OUT_FILE} '2' 'X' '2'
-elif [[ -n "${1}" && "${1}" = *"V"* ]]; then
-  ./${OUT_FILE} '1' 'V' '2' & disown
-  ./${OUT_FILE} '2' 'V' '2'
-else
-  echo "System V queue"
-  ./${OUT_FILE} '1' 'V' '2' & disown
-  ./${OUT_FILE} '2' 'V' '2'
-  sleep 5
-  echo "POSIX queue"
-  ./${OUT_FILE} '1' 'X' '2' & disown
-  ./${OUT_FILE} '2' 'X' '2'
-fi
+#if [[ -n "${1}" && "${1}" = *"X"* ]]; then
+#  ./${OUT_FILE} '1' 'X' '2' & disown
+##  ./${OUT_FILE} '1' 'X' '2'
+#  ./${OUT_FILE} '2' 'X' '2'
+#elif [[ -n "${1}" && "${1}" = *"V"* ]]; then
+#  ./${OUT_FILE} '1' 'V' '2' & disown
+#  ./${OUT_FILE} '2' 'V' '2'
+#else
+#  echo "System V queue"
+#  ./${OUT_FILE} '1' 'V' '2' & disown
+#  ./${OUT_FILE} '2' 'V' '2'
+#  sleep 5
+#  echo "POSIX queue"
+#  ./${OUT_FILE} '1' 'X' '2' & disown
+#  ./${OUT_FILE} '2' 'X' '2'
+#fi
