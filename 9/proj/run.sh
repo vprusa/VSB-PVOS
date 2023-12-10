@@ -15,6 +15,13 @@ OUT_SRV_FILE=socket_srv
 gcc "${MAIN_CL_FILE}" -o "${OUT_CL_FILE}"
 gcc "${MAIN_SRV_FILE}" -o "${OUT_SRV_FILE}"
 
+
+if [[ -n "${1}" && "${1}" = *"test_s"* ]]; then
+  ${OUT_SRV_FILE} -4 10090
+  ${OUT_CL_FILE} -6 10090
+
+fi
+
 #stty -F /dev/tty -icanon
 
 #./${OUT_FILE} '1' & disown

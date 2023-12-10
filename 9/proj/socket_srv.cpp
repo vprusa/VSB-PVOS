@@ -27,9 +27,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #define STR_CLOSE   "close"
 #define STR_QUIT    "quit"
+
+#define TMP_FILE "/tmp/sock"
 
 //***************************************************************************
 // log messages
@@ -40,7 +48,7 @@
 
 // debug flag
 int g_debug = LOG_INFO;
-int g_socket = 1;
+int g_socket = 0;
 int g_ipv4 = 0;
 int g_ipv6 = 0;
 
@@ -83,9 +91,9 @@ void help( int t_narg, char **t_args )
             "\n"
             "  Socket server example.\n"
             "\n"
-            "  Use: %s [-s -4 -6 -h -d] port_number\n"
+            "  Use: %s [-u -4 -6 -h -d] port_number\n"
             "\n"
-            "    -s  socket (default, priority 1)\n"
+            "    -u  unix socket (default, priority 1)\n"
             "    -4  IPv4 (priority 2)\n"
             "    -6  IPv6 (priority 3)\n"
             "    -d  debug mode \n"
@@ -111,7 +119,7 @@ int main( int t_narg, char **t_args )
     for ( int i = 1; i < t_narg; i++ )
     {
 
-        if ( !strcmp( t_args[ i ], "-s" ) ) {
+        if ( !strcmp( t_args[ i ], "-u" ) ) {
             g_socket = 1;
         }
 
@@ -152,44 +160,126 @@ int main( int t_narg, char **t_args )
 
     log_msg( LOG_INFO, "Server will listen on port: %d.", l_port );
 
+    int l_sock_listen;
+    in_addr l_addr_any = {INADDR_ANY};
+    sockaddr_in l_srv_addr;
+    struct sockaddr_in6 l_srv_addr6 = {};
+//    struct sockaddr_in l_srv_addr = {};
+
+    int domain = AF_UNIX;
+    if(g_socket == 1) { // TODO if(g_socket)
+        domain = AF_UNIX;
+    } else if (g_ipv4 == 1) {
+        domain = AF_INET;
+    } else if (g_ipv6 == 1) {
+        domain = AF_INET6;
+    }
+
+    int sock = socket( AF_UNIX, SOCK_STREAM , 0 );
+    sockaddr_un sun;
+    int newsock;
+
     if(g_socket == 1) {
 
         // socket creation
-        int l_sock_listen = socket( AF_INET, SOCK_STREAM, 0 );
-        if ( l_sock_listen == -1 )
-        {
-            log_msg( LOG_ERROR, "Unable to create socket.");
-            exit( 1 );
+//        int l_sock_listen = socket(AF_INET, SOCK_STREAM, 0);
+/*        l_sock_listen = socket(domain, SOCK_STREAM, 0);
+        if (l_sock_listen == -1) {
+            log_msg(LOG_ERROR, "Unable to create socket.");
+            exit(1);
         }
 
-        in_addr l_addr_any = { INADDR_ANY };
-        sockaddr_in l_srv_addr;
-        l_srv_addr.sin_family = AF_INET;
-        l_srv_addr.sin_port = htons( l_port );
+        l_srv_addr.sin_family = domain;
+        l_srv_addr.sin_port = htons(l_port);
         l_srv_addr.sin_addr = l_addr_any;
 
         // Enable the port number reusing
         int l_opt = 1;
-        if ( setsockopt( l_sock_listen, SOL_SOCKET, SO_REUSEADDR, &l_opt, sizeof( l_opt ) ) < 0 )
-          log_msg( LOG_ERROR, "Unable to set socket option!" );
+        if (setsockopt(l_sock_listen, SOL_SOCKET, SO_REUSEADDR, &l_opt, sizeof(l_opt)) < 0)
+            log_msg(LOG_ERROR, "Unable to set socket option!");
 
         // assign port number to socket
-        if ( bind( l_sock_listen, (const sockaddr * ) &l_srv_addr, sizeof( l_srv_addr ) ) < 0 )
-        {
-            log_msg( LOG_ERROR, "Bind failed!" );
-            close( l_sock_listen );
-            exit( 1 );
+        if (bind(l_sock_listen, (const sockaddr *) &l_srv_addr, sizeof(l_srv_addr)) < 0) {
+            log_msg(LOG_ERROR, "Bind failed!");
+            close(l_sock_listen);
+            exit(1);
         }
 
         // listenig on set port
-        if ( listen( l_sock_listen, 1 ) < 0 )
-        {
-            log_msg( LOG_ERROR, "Unable to listen on given port!" );
-            close( l_sock_listen );
-            exit( 1 );
-        }
+        if (listen(l_sock_listen, 1) < 0) {
+            log_msg(LOG_ERROR, "Unable to listen on given port!");
+            close(l_sock_listen);
+            exit(1);
+        }*/
 
-        log_msg( LOG_INFO, "Enter 'quit' to quit server." );
+        sock = socket( AF_UNIX, SOCK_STREAM , 0 );
+        sun.sun_family = AF_UNIX;
+        strcpy( sun.sun_path , TMP_FILE ); // todo param
+        bind( sock, ( sockaddr * ) &sun, sizeof( sun ));
+        listen( sock, 1 );
+//        int newsock = accept( sock, NULL, 0 );
+        newsock = accept( sock, NULL, 0 );
+//        socket = accept( sock, NULL, 0 );
+// communication by newsock
+
+    }
+
+    if (g_ipv4 || g_ipv6) {
+        // TODO g_ipv4 || g_ipv6
+        log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
+
+        // ... [Previous code remains unchanged]
+
+        if (g_ipv4 || g_ipv6) {
+            struct sockaddr *l_addr_ptr;
+            socklen_t l_addr_len;
+
+            if (g_ipv6) {
+                // IPv6 socket
+                l_sock_listen = socket(domain, SOCK_STREAM, 0);
+                if (l_sock_listen == -1) {
+                    log_msg(LOG_ERROR, "Unable to create IPv6 socket.");
+                    exit(1);
+                }
+
+                l_srv_addr6.sin6_family = domain;
+                l_srv_addr6.sin6_port = htons(l_port);
+                l_srv_addr6.sin6_addr = in6addr_any;
+
+                l_addr_ptr = (struct sockaddr *)&l_srv_addr6;
+                l_addr_len = sizeof(l_srv_addr6);
+
+                if (g_ipv4) {
+                    // Dual-stack socket
+                    int l_opt = 0;
+                    if (setsockopt(l_sock_listen, IPPROTO_IPV6, IPV6_V6ONLY, &l_opt, sizeof(l_opt)) < 0) {
+                        log_msg(LOG_ERROR, "Unable to set dual-stack socket option!");
+                    }
+                }
+            } else {
+                // IPv4 socket
+                l_sock_listen = socket(domain, SOCK_STREAM, 0);
+                if (l_sock_listen == -1) {
+                    log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
+                    exit(1);
+                }
+
+                l_srv_addr.sin_family = domain;
+                l_srv_addr.sin_port = htons(l_port);
+                l_srv_addr.sin_addr.s_addr = INADDR_ANY;
+
+                l_addr_ptr = (struct sockaddr *)&l_srv_addr;
+                l_addr_len = sizeof(l_srv_addr);
+            }
+
+            // The rest of your socket setup code goes here...
+            // For example, setsockopt for SO_REUSEADDR, bind, listen, etc.
+            // Use l_sock_listen, l_addr_ptr, and l_addr_len for these operations
+        }
+    }
+
+
+    log_msg( LOG_INFO, "Enter 'quit' to quit server." );
 
         // go!
         while ( 1 )
@@ -203,7 +293,7 @@ int main( int t_narg, char **t_args )
             l_read_poll[ 0 ].events = POLLIN;
             l_read_poll[ 1 ].fd = l_sock_listen;
             l_read_poll[ 1 ].events = POLLIN;
-
+            // https://www.man7.org/linux/man-pages/man7/unix.7.html - todo ...
             while ( 1 ) // wait for new client
             {
                 // select from fds
@@ -247,16 +337,28 @@ int main( int t_narg, char **t_args )
                         close( l_sock_listen );
                         exit( 1 );
                     }
-                    uint l_lsa = sizeof( l_srv_addr );
-                    // my IP
-                    getsockname( l_sock_client, ( sockaddr * ) &l_srv_addr, &l_lsa );
-                    log_msg( LOG_INFO, "My IP: '%s'  port: %d",
-                                     inet_ntoa( l_srv_addr.sin_addr ), ntohs( l_srv_addr.sin_port ) );
-                    // client IP
-                    getpeername( l_sock_client, ( sockaddr * ) &l_srv_addr, &l_lsa );
-                    log_msg( LOG_INFO, "Client IP: '%s'  port: %d",
-                                     inet_ntoa( l_srv_addr.sin_addr ), ntohs( l_srv_addr.sin_port ) );
-
+                    if(g_ipv6) {
+//                        sockaddr_in6
+//                        uint l_lsa = sizeof(sockaddr_in6);
+//                        // my IP
+//                        getsockname(l_sock_client, (sockaddr *) &sockaddr_in6, &l_lsa);
+//                        log_msg(LOG_INFO, "My IP: '%s'  port: %d",
+//                                inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
+//                        // client IP
+//                        getpeername(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
+//                        log_msg(LOG_INFO, "Client IP: '%s'  port: %d",
+//                                inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
+                    } else {
+                        uint l_lsa = sizeof(l_srv_addr);
+                        // my IP
+                        getsockname(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
+                        log_msg(LOG_INFO, "My IP: '%s'  port: %d",
+                                inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
+                        // client IP
+                        getpeername(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
+                        log_msg(LOG_INFO, "Client IP: '%s'  port: %d",
+                                inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
+                    }
                     break;
                 }
 
@@ -339,11 +441,11 @@ int main( int t_narg, char **t_args )
                 }
             } // while communication
         } // while ( 1 )
-    }
-
-    if (g_ipv4 || g_ipv6) {
-        // TODO g_ipv4 || g_ipv6
-        log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
+//    }
+    if( g_socket == 1) {
+        close( newsock );
+        close( sock );
+        unlink( sun.sun_path );
     }
 
     return 0;
