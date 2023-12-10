@@ -83,7 +83,7 @@ void help( int t_narg, char **t_args )
             "\n"
             "  Socket client example.\n"
             "\n"
-            "  Use: %s [-h -d -4 -6 -s] ip_or_name port_number\n"
+            "  Use: %s [-s -4 -6 -h -d] ip_or_name port_number\n"
             "\n"
             "    -s  socket (default, priority 1)\n"
             "    -4  IPv4 (priority 2)\n"
@@ -139,13 +139,14 @@ int main( int t_narg, char **t_args )
                 l_port = atoi( t_args[ i ] );
         }
 
-        if (g_socket == 1) {
-            g_ipv4 = 0;
-            g_ipv6 = 0;
-        }
-        if (g_ipv4 == 1) {
-            g_ipv6 = 0;
-        }
+    }
+
+    if (g_socket == 1) {
+        g_ipv4 = 0;
+        g_ipv6 = 0;
+    }
+    if (g_ipv4 == 1) {
+        g_ipv6 = 0;
     }
 
     if ( !l_host || !l_port )
@@ -157,118 +158,114 @@ int main( int t_narg, char **t_args )
 
     log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
 
-    addrinfo l_ai_req, *l_ai_ans;
-    bzero( &l_ai_req, sizeof( l_ai_req ) );
-    l_ai_req.ai_family = AF_INET;
-    l_ai_req.ai_socktype = SOCK_STREAM;
+    if (g_socket) {
 
-    int l_get_ai = getaddrinfo( l_host, nullptr, &l_ai_req, &l_ai_ans );
-    if ( l_get_ai )
-    {
-        log_msg( LOG_ERROR, "Unknown host name!" );
-        exit( 1 );
-    }
+        addrinfo l_ai_req, *l_ai_ans;
+        bzero(&l_ai_req, sizeof(l_ai_req));
+        l_ai_req.ai_family = AF_INET;
+        l_ai_req.ai_socktype = SOCK_STREAM;
 
-    sockaddr_in l_cl_addr =  *( sockaddr_in * ) l_ai_ans->ai_addr;
-    l_cl_addr.sin_port = htons( l_port );
-    freeaddrinfo( l_ai_ans );
-
-    // socket creation
-    int l_sock_server = socket( AF_INET, SOCK_STREAM, 0 );
-    if ( l_sock_server == -1 )
-    {
-        log_msg( LOG_ERROR, "Unable to create socket.");
-        exit( 1 );
-    }
-
-    // connect to server
-    if ( connect( l_sock_server, ( sockaddr * ) &l_cl_addr, sizeof( l_cl_addr ) ) < 0 )
-    {
-        log_msg( LOG_ERROR, "Unable to connect server." );
-        exit( 1 );
-    }
-
-    uint l_lsa = sizeof( l_cl_addr );
-    // my IP
-    getsockname( l_sock_server, ( sockaddr * ) &l_cl_addr, &l_lsa );
-    log_msg( LOG_INFO, "My IP: '%s'  port: %d",
-             inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
-    // server IP
-    getpeername( l_sock_server, ( sockaddr * ) &l_cl_addr, &l_lsa );
-    log_msg( LOG_INFO, "Server IP: '%s'  port: %d",
-             inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
-
-    log_msg( LOG_INFO, "Enter 'close' to close application." );
-
-    // list of fd sources
-    pollfd l_read_poll[ 2 ];
-
-    l_read_poll[ 0 ].fd = STDIN_FILENO;
-    l_read_poll[ 0 ].events = POLLIN;
-    l_read_poll[ 1 ].fd = l_sock_server;
-    l_read_poll[ 1 ].events = POLLIN;
-
-    // go!
-    while ( 1 )
-    {
-        char l_buf[ 128 ];
-
-        // select from fds
-        if ( poll( l_read_poll, 2, -1 ) < 0 ) break;
-
-        // data on stdin?
-        if ( l_read_poll[ 0 ].revents & POLLIN )
-        {
-            //  read from stdin
-            int l_len = read( STDIN_FILENO, l_buf, sizeof( l_buf ) );
-            if ( l_len < 0 )
-                log_msg( LOG_ERROR, "Unable to read from stdin." );
-            else
-                log_msg( LOG_DEBUG, "Read %d bytes from stdin.", l_len );
-
-            // send data to server
-            l_len = write( l_sock_server, l_buf, l_len );
-            if ( l_len < 0 )
-                log_msg( LOG_ERROR, "Unable to send data to server." );
-            else
-                log_msg( LOG_DEBUG, "Sent %d bytes to server.", l_len );
+        int l_get_ai = getaddrinfo(l_host, nullptr, &l_ai_req, &l_ai_ans);
+        if (l_get_ai) {
+            log_msg(LOG_ERROR, "Unknown host name!");
+            exit(1);
         }
 
-        // data from server?
-        if ( l_read_poll[ 1 ].revents & POLLIN )
-        {
-            // read data from server
-            int l_len = read( l_sock_server, l_buf, sizeof( l_buf ) );
-            if ( !l_len )
-            {
-                log_msg( LOG_DEBUG, "Server closed socket." );
-                break;
-            }
-            else if ( l_len < 0 )
-            {
-                log_msg( LOG_ERROR, "Unable to read data from server." );
-                break;
-            }
-            else
-                log_msg( LOG_DEBUG, "Read %d bytes from server.", l_len );
+        sockaddr_in l_cl_addr = *(sockaddr_in *) l_ai_ans->ai_addr;
+        l_cl_addr.sin_port = htons(l_port);
+        freeaddrinfo(l_ai_ans);
 
-            // display on stdout
-            l_len = write( STDOUT_FILENO, l_buf, l_len );
-            if ( l_len < 0 )
-                log_msg( LOG_ERROR, "Unable to write to stdout." );
+        // socket creation
+        int l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
+        if (l_sock_server == -1) {
+            log_msg(LOG_ERROR, "Unable to create socket.");
+            exit(1);
+        }
 
-            // request to close?
-            if ( !strncasecmp( l_buf, STR_CLOSE, strlen( STR_CLOSE ) ) )
-            {
-                log_msg( LOG_INFO, "Connection will be closed..." );
-                break;
+        // connect to server
+        if (connect(l_sock_server, (sockaddr *) &l_cl_addr, sizeof(l_cl_addr)) < 0) {
+            log_msg(LOG_ERROR, "Unable to connect server.");
+            exit(1);
+        }
+
+        uint l_lsa = sizeof(l_cl_addr);
+        // my IP
+        getsockname(l_sock_server, (sockaddr *) &l_cl_addr, &l_lsa);
+        log_msg(LOG_INFO, "My IP: '%s'  port: %d",
+                inet_ntoa(l_cl_addr.sin_addr), ntohs(l_cl_addr.sin_port));
+        // server IP
+        getpeername(l_sock_server, (sockaddr *) &l_cl_addr, &l_lsa);
+        log_msg(LOG_INFO, "Server IP: '%s'  port: %d",
+                inet_ntoa(l_cl_addr.sin_addr), ntohs(l_cl_addr.sin_port));
+
+        log_msg(LOG_INFO, "Enter 'close' to close application.");
+
+        // list of fd sources
+        pollfd l_read_poll[2];
+
+        l_read_poll[0].fd = STDIN_FILENO;
+        l_read_poll[0].events = POLLIN;
+        l_read_poll[1].fd = l_sock_server;
+        l_read_poll[1].events = POLLIN;
+
+        // go!
+        while (1) {
+            char l_buf[128];
+
+            // select from fds
+            if (poll(l_read_poll, 2, -1) < 0) break;
+
+            // data on stdin?
+            if (l_read_poll[0].revents & POLLIN) {
+                //  read from stdin
+                int l_len = read(STDIN_FILENO, l_buf, sizeof(l_buf));
+                if (l_len < 0)
+                    log_msg(LOG_ERROR, "Unable to read from stdin.");
+                else
+                    log_msg(LOG_DEBUG, "Read %d bytes from stdin.", l_len);
+
+                // send data to server
+                l_len = write(l_sock_server, l_buf, l_len);
+                if (l_len < 0)
+                    log_msg(LOG_ERROR, "Unable to send data to server.");
+                else
+                    log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
+            }
+
+            // data from server?
+            if (l_read_poll[1].revents & POLLIN) {
+                // read data from server
+                int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
+                if (!l_len) {
+                    log_msg(LOG_DEBUG, "Server closed socket.");
+                    break;
+                } else if (l_len < 0) {
+                    log_msg(LOG_ERROR, "Unable to read data from server.");
+                    break;
+                } else
+                    log_msg(LOG_DEBUG, "Read %d bytes from server.", l_len);
+
+                // display on stdout
+                l_len = write(STDOUT_FILENO, l_buf, l_len);
+                if (l_len < 0)
+                    log_msg(LOG_ERROR, "Unable to write to stdout.");
+
+                // request to close?
+                if (!strncasecmp(l_buf, STR_CLOSE, strlen(STR_CLOSE))) {
+                    log_msg(LOG_INFO, "Connection will be closed...");
+                    break;
+                }
             }
         }
+
+        // close socket
+        close(l_sock_server);
     }
 
-    // close socket
-    close( l_sock_server );
+    if (g_ipv4 || g_ipv6) {
+        // TODO g_ipv4 || g_ipv6
+        log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
+    }
 
     return 0;
   }
-
