@@ -168,6 +168,7 @@ int main( int t_narg, char **t_args )
 
     log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
 
+    if ( g_socket != 1) {
 
         addrinfo l_ai_req, *l_ai_ans;
         bzero(&l_ai_req, sizeof(l_ai_req));
@@ -181,246 +182,160 @@ int main( int t_narg, char **t_args )
             domain = AF_INET6;
         }
 
-        if ( g_socket != 1) {
-            l_ai_req.ai_family = domain;
-            l_ai_req.ai_socktype = SOCK_STREAM;
+        l_ai_req.ai_family = domain;
+        l_ai_req.ai_socktype = SOCK_STREAM;
 
-            int l_get_ai = getaddrinfo(l_host, nullptr, &l_ai_req, &l_ai_ans);
-            if (l_get_ai) {
-                log_msg(LOG_ERROR, "Unknown host name!");
-                exit(1);
-            }
+        int l_get_ai = getaddrinfo(l_host, nullptr, &l_ai_req, &l_ai_ans);
+        if (l_get_ai) {
+            log_msg(LOG_ERROR, "Unknown host name!");
+            exit(1);
         }
-        sockaddr_in l_cl_addr;
-        int l_sock_server;
-//        int l_sock_listen;
-        struct sockaddr *l_addr_ptr;
-        socklen_t l_addr_len;
+    }
+    sockaddr_in l_cl_addr;
+    int l_sock_server;
+    struct sockaddr *l_addr_ptr;
+    socklen_t l_addr_len;
 
     struct sockaddr_un addr;
-    int ret;
     int data_socket;
-    char buffer[BUFFER_SIZE];
 
-        if(g_socket == 1) {
+    if(g_socket == 1) {
 
-            /*
-//            sockaddr_in l_cl_addr = *(sockaddr_in *) l_ai_ans->ai_addr;
-            l_cl_addr = *(sockaddr_in *) l_ai_ans->ai_addr;
-            l_cl_addr.sin_port = htons(l_port);
-            freeaddrinfo(l_ai_ans);
+//            int sock = socket( AF_UNIX, SOCK_STREAM , 0 );
+        int data_socket = socket( AF_UNIX, SOCK_STREAM , 0 );
 
-            // socket creation
-            // https://www.man7.org/linux/man-pages/man2/socket.2.html
-            // AF_UNIX | AF_INET | AF_INET6
-//            int l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
-            l_sock_server = socket(AF_LOCAL, SOCK_STREAM, 0);
+        sockaddr_un sun;
+        sun. sun_family = AF_UNIX;
+        strcpy( sun. sun_path , TMP_FILE );
+        int con_res = connect( data_socket, ( sockaddr * ) &sun, sizeof( sun ) );
+        l_sock_server = data_socket;
+// communication by sock
+//            close( sock );
+    }
+
+
+    if (g_ipv4 || g_ipv6) {
+        // TODO g_ipv4 || g_ipv6
+        log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
+
+        if (g_ipv6) {
+            // IPv6 socket
+            l_sock_server = socket(AF_INET6, SOCK_STREAM, 0);
             if (l_sock_server == -1) {
-                log_msg(LOG_ERROR, "Unable to create socket.");
+                log_msg(LOG_ERROR, "Unable to create IPv6 socket.");
                 exit(1);
             }
 
-            // connect to server
-            if (connect(l_sock_server, (sockaddr * ) & l_cl_addr, sizeof(l_cl_addr)) < 0) {
-                log_msg(LOG_ERROR, "Unable to connect server.");
+            struct sockaddr_in6 l_srv_addr6 = {};
+            l_srv_addr6.sin6_family = AF_INET6;
+            l_srv_addr6.sin6_port = htons(l_port);
+            l_srv_addr6.sin6_addr = in6addr_any;
+
+            l_addr_ptr = (struct sockaddr *)&l_srv_addr6;
+            l_addr_len = sizeof(l_srv_addr6);
+
+            if (g_ipv4) {
+                // Dual-stack socket
+                // https://stackoverflow.com/questions/1618240/how-to-support-both-ipv4-and-ipv6-connections
+                int l_opt = 0;
+                if (setsockopt(l_sock_server, IPPROTO_IPV6, IPV6_V6ONLY, &l_opt, sizeof(l_opt)) < 0) {
+                    log_msg(LOG_ERROR, "Unable to set dual-stack socket option!");
+                }
+            }
+        } else {
+            // IPv4 socket
+            l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
+            if (l_sock_server == -1) {
+                log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
                 exit(1);
             }
 
-            uint l_lsa = sizeof(l_cl_addr);
-            // my IP
-            getsockname(l_sock_server, (sockaddr * ) & l_cl_addr, &l_lsa);
-            log_msg(LOG_INFO, "My IP: '%s'  port: %d",
-                    inet_ntoa(l_cl_addr.sin_addr), ntohs(l_cl_addr.sin_port));
-            // server IP
-            getpeername(l_sock_server, (sockaddr * ) & l_cl_addr, &l_lsa);
-            log_msg(LOG_INFO, "Server IP: '%s'  port: %d",
-                    inet_ntoa(l_cl_addr.sin_addr), ntohs(l_cl_addr.sin_port));
-            */
+            struct sockaddr_in l_srv_addr = {};
+            l_srv_addr.sin_family = AF_INET;
+            l_srv_addr.sin_port = htons(l_port);
+            l_srv_addr.sin_addr.s_addr = INADDR_ANY;
 
-
-            /* Create local socket. */
-
-            data_socket = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-            if (data_socket == -1) {
-                perror("socket");
-                exit(EXIT_FAILURE);
-            }
-
-            /*
-             * For portability clear the whole structure, since some
-             * implementations have additional (nonstandard) fields in
-             * the structure.
-             */
-
-            memset(&addr, 0, sizeof(addr));
-
-            /* Connect socket to socket address. */
-
-            addr.sun_family = AF_UNIX;
-            strncpy(addr.sun_path, TMP_FILE, sizeof(addr.sun_path) - 1);
-
-            ret = connect(data_socket, (const struct sockaddr *) &addr,
-                          sizeof(addr));
-            if (ret == -1) {
-                fprintf(stderr, "The server is down.\n");
-                exit(EXIT_FAILURE);
-            }
-
-//            /* Send arguments. */
-/*
-            for (size_t i = 1; i < argc; ++i) {
-                ret = write(data_socket, argv[i], strlen(argv[i]) + 1);
-                if (ret == -1) {
-                    perror("write");
-                    break;
-                }
-            }
-*/
-
-            /* Request result. */
-            strcpy(buffer, "END");
-            ret = write(data_socket, buffer, strlen(buffer) + 1);
-            if (ret == -1) {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
-
-            /* Receive result. */
-
-            ret = read(data_socket, buffer, sizeof(buffer));
-            if (ret == -1) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }
-            /* Ensure buffer is 0-terminated. */
-//            buffer[sizeof(buffer) - 1] = 0;
-//            printf("Result = %s\n", buffer);
-
-            /* Close socket. */
+            l_addr_ptr = (struct sockaddr *)&l_srv_addr;
+            l_addr_len = sizeof(l_srv_addr);
         }
 
+        // The rest of your socket setup code goes here...
+        // For example, setsockopt for SO_REUSEADDR, bind, listen, etc.
+        // Use l_sock_listen, l_addr_ptr, and l_addr_len for these operations
+    }
 
-        if (g_ipv4 || g_ipv6) {
-            // TODO g_ipv4 || g_ipv6
-            log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
+    log_msg(LOG_INFO, "Enter 'close' to close application.");
 
-            if (g_ipv6) {
-                // IPv6 socket
-                l_sock_server = socket(AF_INET6, SOCK_STREAM, 0);
-                if (l_sock_server == -1) {
-                    log_msg(LOG_ERROR, "Unable to create IPv6 socket.");
-                    exit(1);
-                }
+    // list of fd sources
+    pollfd l_read_poll[2];
 
-                struct sockaddr_in6 l_srv_addr6 = {};
-                l_srv_addr6.sin6_family = AF_INET6;
-                l_srv_addr6.sin6_port = htons(l_port);
-                l_srv_addr6.sin6_addr = in6addr_any;
+    l_read_poll[0].fd = STDIN_FILENO;
+    l_read_poll[0].events = POLLIN;
+    l_read_poll[1].fd = l_sock_server;
+    l_read_poll[1].events = POLLIN;
 
-                l_addr_ptr = (struct sockaddr *)&l_srv_addr6;
-                l_addr_len = sizeof(l_srv_addr6);
+    // go!
+    while (1) {
+        char l_buf[128];
 
-                if (g_ipv4) {
-                    // Dual-stack socket
-                    int l_opt = 0;
-                    if (setsockopt(l_sock_server, IPPROTO_IPV6, IPV6_V6ONLY, &l_opt, sizeof(l_opt)) < 0) {
-                        log_msg(LOG_ERROR, "Unable to set dual-stack socket option!");
-                    }
-                }
-            } else {
-                // IPv4 socket
-                l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
-                if (l_sock_server == -1) {
-                    log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
-                    exit(1);
-                }
+        // select from fds
+        if (poll(l_read_poll, 2, -1) < 0) break;
 
-                struct sockaddr_in l_srv_addr = {};
-                l_srv_addr.sin_family = AF_INET;
-                l_srv_addr.sin_port = htons(l_port);
-                l_srv_addr.sin_addr.s_addr = INADDR_ANY;
+        // data on stdin?s
+        if (l_read_poll[0].revents & POLLIN) {
+            //  read from stdin
+            int l_len = read(STDIN_FILENO, l_buf, sizeof(l_buf));
+            if (l_len < 0)
+                log_msg(LOG_ERROR, "Unable to read from stdin.");
+            else
+                log_msg(LOG_DEBUG, "Read %d bytes from stdin.", l_len);
 
-                l_addr_ptr = (struct sockaddr *)&l_srv_addr;
-                l_addr_len = sizeof(l_srv_addr);
-            }
-
-            // The rest of your socket setup code goes here...
-            // For example, setsockopt for SO_REUSEADDR, bind, listen, etc.
-            // Use l_sock_listen, l_addr_ptr, and l_addr_len for these operations
+            // send data to server
+            l_len = write(l_sock_server, l_buf, l_len);
+            if (l_len < 0)
+                log_msg(LOG_ERROR, "Unable to send data to server.");
+            else
+                log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
         }
 
-        log_msg(LOG_INFO, "Enter 'close' to close application.");
-
-        // list of fd sources
-        pollfd l_read_poll[2];
-
-        l_read_poll[0].fd = STDIN_FILENO;
-        l_read_poll[0].events = POLLIN;
-        l_read_poll[1].fd = l_sock_server;
-        l_read_poll[1].events = POLLIN;
-
-        // go!
-        while (1) {
-            char l_buf[128];
-
-            // select from fds
-            if (poll(l_read_poll, 2, -1) < 0) break;
-
-            // data on stdin?s
-            if (l_read_poll[0].revents & POLLIN) {
-                //  read from stdin
-                int l_len = read(STDIN_FILENO, l_buf, sizeof(l_buf));
-                if (l_len < 0)
-                    log_msg(LOG_ERROR, "Unable to read from stdin.");
-                else
-                    log_msg(LOG_DEBUG, "Read %d bytes from stdin.", l_len);
-
-                // send data to server
-                l_len = write(l_sock_server, l_buf, l_len);
-                if (l_len < 0)
-                    log_msg(LOG_ERROR, "Unable to send data to server.");
-                else
-                    log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
-            }
-
-            // data from server?
-            if (l_read_poll[1].revents & POLLIN) {
-                // read data from server
+        // data from server?
+        if (l_read_poll[1].revents & POLLIN) {
+            // read data from server
 //                int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-                int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-                if(g_socket == 1) {
-                } else if (g_ipv4) {
-                    log_msg( LOG_DEBUG, "g_ipv4" );
-                    l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-                }
-                if (!l_len) {
-                    log_msg(LOG_DEBUG, "Server closed socket.");
-                    break;
-                } else if (l_len < 0) {
-                    log_msg(LOG_ERROR, "Unable to read data from server.");
-                    break;
-                } else
-                    log_msg(LOG_DEBUG, "Read %d bytes from server.", l_len);
+            int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
+            if(g_socket == 1) {
+            } else if (g_ipv4) {
+                log_msg( LOG_DEBUG, "g_ipv4" );
+                l_len = read(l_sock_server, l_buf, sizeof(l_buf));
+            }
+            if (!l_len) {
+                log_msg(LOG_DEBUG, "Server closed socket.");
+                break;
+            } else if (l_len < 0) {
+                log_msg(LOG_ERROR, "Unable to read data from server.");
+                break;
+            } else
+                log_msg(LOG_DEBUG, "Read %d bytes from server.", l_len);
 
-                // display on stdout
-                l_len = write(STDOUT_FILENO, l_buf, l_len);
-                if (l_len < 0)
-                    log_msg(LOG_ERROR, "Unable to write to stdout.");
+            // display on stdout
+            l_len = write(STDOUT_FILENO, l_buf, l_len);
+            if (l_len < 0)
+                log_msg(LOG_ERROR, "Unable to write to stdout.");
 
-                // request to close?
-                if (!strncasecmp(l_buf, STR_CLOSE, strlen(STR_CLOSE))) {
-                    log_msg(LOG_INFO, "Connection will be closed...");
-                    break;
-                }
+            // request to close?
+            if (!strncasecmp(l_buf, STR_CLOSE, strlen(STR_CLOSE))) {
+                log_msg(LOG_INFO, "Connection will be closed...");
+                break;
             }
         }
+    }
 
-        // close socket
-        close(l_sock_server);
+    // close socket
+    close(l_sock_server);
 
-        if(g_socket == 1) {
-            close(data_socket);
-        }
+    if(g_socket == 1) {
+        close(data_socket);
+    }
 
     return 0;
   }
