@@ -166,9 +166,9 @@ int main( int t_narg, char **t_args )
         exit( 1 );
     }
 
-    log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
+//    log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
 
-    if ( g_socket != 1) {
+    if (g_socket != 1) {
 
         addrinfo l_ai_req, *l_ai_ans;
         bzero(&l_ai_req, sizeof(l_ai_req));
@@ -244,6 +244,8 @@ int main( int t_narg, char **t_args )
             }
         } else {
             // IPv4 socket
+
+/*
             l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
             if (l_sock_server == -1) {
                 log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
@@ -257,6 +259,68 @@ int main( int t_narg, char **t_args )
 
             l_addr_ptr = (struct sockaddr *)&l_srv_addr;
             l_addr_len = sizeof(l_srv_addr);
+*/
+
+            if ( !l_host || !l_port )
+            {
+                log_msg( LOG_INFO, "Host or port is missing!" );
+                help( t_narg, t_args );
+                exit( 1 );
+            }
+
+            log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
+
+            addrinfo l_ai_req, *l_ai_ans;
+            bzero( &l_ai_req, sizeof( l_ai_req ) );
+            l_ai_req.ai_family = AF_INET;
+            l_ai_req.ai_socktype = SOCK_STREAM;
+
+            int l_get_ai = getaddrinfo( l_host, nullptr, &l_ai_req, &l_ai_ans );
+            if ( l_get_ai )
+            {
+                log_msg( LOG_ERROR, "Unknown host name!" );
+                exit( 1 );
+            }
+
+            sockaddr_in l_cl_addr =  *( sockaddr_in * ) l_ai_ans->ai_addr;
+            l_cl_addr.sin_port = htons( l_port );
+            freeaddrinfo( l_ai_ans );
+
+            // socket creation
+            int l_sock_server = socket( AF_INET, SOCK_STREAM, 0 );
+            if ( l_sock_server == -1 )
+            {
+                log_msg( LOG_ERROR, "Unable to create socket.");
+                exit( 1 );
+            }
+
+            // connect to server
+            if ( connect( l_sock_server, ( sockaddr * ) &l_cl_addr, sizeof( l_cl_addr ) ) < 0 )
+            {
+                log_msg( LOG_ERROR, "Unable to connect server." );
+                exit( 1 );
+            }
+
+            uint l_lsa = sizeof( l_cl_addr );
+            // my IP
+            getsockname( l_sock_server, ( sockaddr * ) &l_cl_addr, &l_lsa );
+            log_msg( LOG_INFO, "My IP: '%s'  port: %d",
+                     inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
+            // server IP
+            getpeername( l_sock_server, ( sockaddr * ) &l_cl_addr, &l_lsa );
+            log_msg( LOG_INFO, "Server IP: '%s'  port: %d",
+                     inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
+
+//            log_msg( LOG_INFO, "Enter 'close' to close application." );
+
+            // list of fd sources
+//            pollfd l_read_poll[ 2 ];
+//
+//            l_read_poll[ 0 ].fd = STDIN_FILENO;
+//            l_read_poll[ 0 ].events = POLLIN;
+//            l_read_poll[ 1 ].fd = l_sock_server;
+//            l_read_poll[ 1 ].events = POLLIN;
+
         }
 
         // The rest of your socket setup code goes here...

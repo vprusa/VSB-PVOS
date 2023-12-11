@@ -226,13 +226,41 @@ int main( int t_narg, char **t_args )
                     log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
                     exit(1);
                 }
-
+/*
                 l_srv_addr.sin_family = domain;
                 l_srv_addr.sin_port = htons(l_port);
                 l_srv_addr.sin_addr.s_addr = INADDR_ANY;
 
                 l_addr_ptr = (struct sockaddr *)&l_srv_addr;
-                l_addr_len = sizeof(l_srv_addr);
+                l_addr_len = sizeof(l_srv_addr);*/
+
+                in_addr l_addr_any = { INADDR_ANY };
+                sockaddr_in l_srv_addr;
+                l_srv_addr.sin_family = AF_INET;
+                l_srv_addr.sin_port = htons( l_port );
+                l_srv_addr.sin_addr = l_addr_any;
+
+                // Enable the port number reusing
+                int l_opt = 1;
+                if ( setsockopt( l_sock_listen, SOL_SOCKET, SO_REUSEADDR, &l_opt, sizeof( l_opt ) ) < 0 )
+                    log_msg( LOG_ERROR, "Unable to set socket option!" );
+
+                // assign port number to socket
+                if ( bind( l_sock_listen, (const sockaddr * ) &l_srv_addr, sizeof( l_srv_addr ) ) < 0 )
+                {
+                    log_msg( LOG_ERROR, "Bind failed!" );
+                    close( l_sock_listen );
+                    exit( 1 );
+                }
+
+                // listenig on set port
+                if ( listen( l_sock_listen, 1 ) < 0 )
+                {
+                    log_msg( LOG_ERROR, "Unable to listen on given port!" );
+                    close( l_sock_listen );
+                    exit( 1 );
+                }
+
             }
 
         }
@@ -415,7 +443,7 @@ int main( int t_narg, char **t_args )
 
 //    if( g_socket == 1) {
     close( socket_sock );
-    close( sock );
+//    close( sock );
     unlink( sun.sun_path );
 //    }
 
