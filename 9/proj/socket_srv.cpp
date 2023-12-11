@@ -175,46 +175,9 @@ int main( int t_narg, char **t_args )
         domain = AF_INET6;
     }
 
-    int sock;
     int socket_sock;
     sockaddr_un sun;
     if(g_socket == 1) {
-
-        // socket creation
-//        int l_sock_listen = socket(AF_INET, SOCK_STREAM, 0);
-/*        l_sock_listen = socket(domain, SOCK_STREAM, 0);
-        if (l_sock_listen == -1) {
-            log_msg(LOG_ERROR, "Unable to create socket.");
-            exit(1);
-        }
-
-        l_srv_addr.sin_family = domain;
-        l_srv_addr.sin_port = htons(l_port);
-        l_srv_addr.sin_addr = l_addr_any;
-
-        // Enable the port number reusing
-        int l_opt = 1;
-        if (setsockopt(l_sock_listen, SOL_SOCKET, SO_REUSEADDR, &l_opt, sizeof(l_opt)) < 0)
-            log_msg(LOG_ERROR, "Unable to set socket option!");
-
-        // assign port number to socket
-        if (bind(l_sock_listen, (const sockaddr *) &l_srv_addr, sizeof(l_srv_addr)) < 0) {
-            log_msg(LOG_ERROR, "Bind failed!");
-            close(l_sock_listen);
-            exit(1);
-        }
-
-        // listenig on set port
-        if (listen(l_sock_listen, 1) < 0) {
-            log_msg(LOG_ERROR, "Unable to listen on given port!");
-            close(l_sock_listen);
-            exit(1);
-        }*/
-
-
-//        int sock = socket( AF_UNIX, SOCK_STREAM , 0 );
-//        sockaddr_un sun;
-//        int newsock;
 
         socket_sock = socket( AF_UNIX, SOCK_STREAM , 0 );
         sun.sun_family = AF_UNIX;
@@ -224,15 +187,11 @@ int main( int t_narg, char **t_args )
 //        int newsock = accept( sock, NULL, 0 );
 //        sock = accept( sock, NULL, 0 );
 //        socket = accept( sock, NULL, 0 );
-// communication by newsock
-
     }
 
     if (g_ipv4 || g_ipv6) {
         // TODO g_ipv4 || g_ipv6
         log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
-
-        // ... [Previous code remains unchanged]
 
         if (g_ipv4 || g_ipv6) {
             struct sockaddr *l_addr_ptr;
@@ -276,9 +235,6 @@ int main( int t_narg, char **t_args )
                 l_addr_len = sizeof(l_srv_addr);
             }
 
-            // The rest of your socket setup code goes here...
-            // For example, setsockopt for SO_REUSEADDR, bind, listen, etc.
-            // Use l_sock_listen, l_addr_ptr, and l_addr_len for these operations
         }
     }
 
