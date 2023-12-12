@@ -177,6 +177,15 @@ int main( int t_narg, char **t_args )
 
     int socket_sock;
     sockaddr_un sun;
+
+
+    int listen_sock_fd = -1, client_sock_fd = -1;
+    struct sockaddr_in6 server_addr, client_addr;
+    socklen_t client_addr_len;
+    char str_addr[INET6_ADDRSTRLEN];
+    int ret, flag;
+    char ch;
+
     if(g_socket == 1) {
 
         socket_sock = socket( AF_UNIX, SOCK_STREAM , 0 );
@@ -187,9 +196,7 @@ int main( int t_narg, char **t_args )
 //        int newsock = accept( sock, NULL, 0 );
 //        sock = accept( sock, NULL, 0 );
 //        socket = accept( sock, NULL, 0 );
-    }
-
-    if (g_ipv4 || g_ipv6) {
+    } else if (g_ipv4 || g_ipv6) {
         // TODO g_ipv4 || g_ipv6
         log_msg( LOG_DEBUG, "TODO g_ipv4 || g_ipv6" );
 
@@ -199,6 +206,7 @@ int main( int t_narg, char **t_args )
 
             if (g_ipv6) {
                 // IPv6 socket
+                /*
                 l_sock_listen = socket(domain, SOCK_STREAM, 0);
                 if (l_sock_listen == -1) {
                     log_msg(LOG_ERROR, "Unable to create IPv6 socket.");
@@ -211,14 +219,62 @@ int main( int t_narg, char **t_args )
 
                 l_addr_ptr = (struct sockaddr *)&l_srv_addr6;
                 l_addr_len = sizeof(l_srv_addr6);
+                */
 
+                /*
                 if (g_ipv4) {
                     // Dual-stack socket
                     int l_opt = 0;
                     if (setsockopt(l_sock_listen, IPPROTO_IPV6, IPV6_V6ONLY, &l_opt, sizeof(l_opt)) < 0) {
                         log_msg(LOG_ERROR, "Unable to set dual-stack socket option!");
                     }
+                }*/
+/*
+                int listen_sock_fd = -1, client_sock_fd = -1;
+                struct sockaddr_in6 server_addr, client_addr;
+                socklen_t client_addr_len;
+                char str_addr[INET6_ADDRSTRLEN];
+                int ret, flag;
+                char ch;*/
+
+                /* Create socket for listening (client requests) */
+                listen_sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+                if(listen_sock_fd == -1) {
+                    perror("socket()");
+                    return EXIT_FAILURE;
                 }
+
+                /* Set socket to reuse address */
+                flag = 1;
+                ret = setsockopt(listen_sock_fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
+                if(ret == -1) {
+                    perror("setsockopt()");
+                    return EXIT_FAILURE;
+                }
+
+                server_addr.sin6_family = AF_INET6;
+                server_addr.sin6_addr = in6addr_any;
+                server_addr.sin6_port = htons(l_port);
+
+                /* Bind address and socket together */
+                ret = bind(listen_sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+                if(ret == -1) {
+                    perror("bind()");
+                    close(listen_sock_fd);
+                    return EXIT_FAILURE;
+                }
+
+                /* Create listening queue (client requests) */
+                ret = listen(listen_sock_fd, 10); // CLIENT_QUEUE_LEN);
+                if (ret == -1) {
+                    perror("listen()");
+                    close(listen_sock_fd);
+                    return EXIT_FAILURE;
+                }
+
+                l_sock_listen = listen_sock_fd;
+
+                client_addr_len = sizeof(client_addr);
             } else {
                 // IPv4 socket
                 l_sock_listen = socket(domain, SOCK_STREAM, 0);
@@ -327,7 +383,26 @@ int main( int t_narg, char **t_args )
                     l_sock_client = accept(socket_sock, NULL, 0);
 
                 } else {
-                    l_sock_client = accept( l_sock_listen, ( sockaddr * ) &l_rsa, ( socklen_t * ) &l_rsa_size );
+                    if(g_ipv6) {
+                        client_sock_fd = accept(l_sock_listen,
+                                                (struct sockaddr*)&client_addr,
+                                                &client_addr_len);
+                        l_sock_client = client_sock_fd;
+                        if (client_sock_fd == -1) {
+                            perror("accept()");
+                            close(listen_sock_fd);
+                            return EXIT_FAILURE;
+                        }
+
+                        inet_ntop(AF_INET6, &(client_addr.sin6_addr),
+                                  str_addr, sizeof(str_addr));
+                        printf("New connection from: %s:%d ...\n",
+                               str_addr,
+                               ntohs(client_addr.sin6_port));
+
+                    } else if(g_ipv4) {
+                        l_sock_client = accept(l_sock_listen, (sockaddr *) &l_rsa, (socklen_t *) &l_rsa_size);
+                    }
                 }
                 if ( l_sock_client == -1 )
                 {
@@ -337,6 +412,7 @@ int main( int t_narg, char **t_args )
                 }
                 if(g_ipv6) {
 //                        sockaddr_in6
+                    /*
                     sockaddr_in6 addr6;
                     uint l_lsa = sizeof(sockaddr_in6);
                     // my IP
@@ -347,6 +423,7 @@ int main( int t_narg, char **t_args )
                     getpeername(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
                     log_msg(LOG_INFO, "Client IP: '%s'  port: %d",
                             inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
+                    */
                 } else {
                     uint l_lsa = sizeof(l_srv_addr);
                     // my IP
@@ -389,12 +466,38 @@ int main( int t_narg, char **t_args )
                 else
                     log_msg( LOG_DEBUG, "Read %d bytes from stdin.", l_len );
 
-                // send data to client
-                l_len = write( l_sock_client, l_buf, l_len );
-                if ( l_len < 0 )
-                    log_msg( LOG_ERROR, "Unable to send data to client." );
-                else
-                    log_msg( LOG_DEBUG, "Sent %d bytes to client.", l_len );
+                if (g_ipv4) {
+                    // send data to client
+                    l_len = write(l_sock_client, l_buf, l_len);
+                    if (l_len < 0)
+                        log_msg(LOG_ERROR, "Unable to send data to client.");
+                    else
+                        log_msg(LOG_DEBUG, "Sent %d bytes to client.", l_len);
+                } else if (g_ipv6) {
+
+                    // send data to client
+                    l_len = write(l_sock_client, l_buf, l_len);
+                    if (l_len < 0) {
+                        log_msg(LOG_ERROR, "Unable to send data to client.");
+                    } else {
+                        log_msg(LOG_DEBUG, "Sent %d bytes to client.", l_len);
+                    }
+
+                    /*client_sock_fd = accept(listen_sock_fd,
+                                            (struct sockaddr*)&client_addr,
+                                            &client_addr_len);
+                    if (client_sock_fd == -1) {
+                        perror("accept()");
+                        close(listen_sock_fd);
+                        return EXIT_FAILURE;
+                    }
+
+                    inet_ntop(AF_INET6, &(client_addr.sin6_addr),
+                              str_addr, sizeof(str_addr));
+                    printf("New connection from: %s:%d ...\n",
+                           str_addr,
+                           ntohs(client_addr.sin6_port));*/
+                }
             }
             // data from client?
             if ( l_read_poll[ 1 ].revents & POLLIN )
@@ -406,15 +509,13 @@ int main( int t_narg, char **t_args )
                     log_msg( LOG_DEBUG, "Client closed socket!" );
                     close( l_sock_client );
                     break;
-                }
-                else if ( l_len < 0 )
-                {
+                } else if ( l_len < 0 ) {
                     log_msg( LOG_ERROR, "Unable to read data from client." );
                     close( l_sock_client );
                     break;
-                }
-                else
+                } else {
                     log_msg( LOG_DEBUG, "Read %d bytes from client.", l_len );
+                }
 
                 // write data to client
                 l_len = write( STDOUT_FILENO, l_buf, l_len );
@@ -422,11 +523,10 @@ int main( int t_narg, char **t_args )
                     log_msg( LOG_ERROR, "Unable to write data to stdout." );
 
                 // close request?
-                if ( !strncasecmp( l_buf, "close", strlen( STR_CLOSE ) ) )
-                {
-                    log_msg( LOG_INFO, "Client sent 'close' request to close connection." );
+                if ( !strncasecmp( l_buf, "close", strlen( STR_CLOSE ) ) ) {
+                    log_msg( LOG_INFO, "Client sent 'close' request to close connection.");
                     close( l_sock_client );
-                    log_msg( LOG_INFO, "Connection closed. Waiting for new client." );
+                    log_msg( LOG_INFO, "Connection closed. Waiting for new client.");
                     break;
                 }
             }

@@ -199,6 +199,12 @@ int main( int t_narg, char **t_args )
     struct sockaddr_un addr;
     int data_socket;
 
+    int sock_fd = -1;
+    struct sockaddr_in6 server_addr;
+    int ret;
+    char ch = 'a';
+
+
     if(g_socket == 1) {
 //            int sock = socket( AF_UNIX, SOCK_STREAM , 0 );
         data_socket = socket( AF_UNIX, SOCK_STREAM , 0 );
@@ -216,7 +222,29 @@ int main( int t_narg, char **t_args )
 
         if (g_ipv6) {
             // IPv6 socket
-            l_sock_server = socket(AF_INET6, SOCK_STREAM, 0);
+
+            /* Create socket for communication with server */
+            sock_fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+            if (sock_fd == -1) {
+                perror("socket()");
+                return EXIT_FAILURE;
+            }
+
+            /* Connect to server running on localhost */
+            server_addr.sin6_family = AF_INET6;
+            inet_pton(AF_INET6, l_host, &server_addr.sin6_addr);
+            server_addr.sin6_port = htons(l_port);
+
+            /* Try to do TCP handshake with server */
+            ret = connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+            if (ret == -1) {
+                perror("connect()");
+                close(sock_fd);
+                return EXIT_FAILURE;
+            }
+            l_sock_server = sock_fd;
+
+/*            l_sock_server = socket(AF_INET6, SOCK_STREAM, 0);
             if (l_sock_server == -1) {
                 log_msg(LOG_ERROR, "Unable to create IPv6 socket.");
                 exit(1);
@@ -228,7 +256,7 @@ int main( int t_narg, char **t_args )
             l_srv_addr6.sin6_addr = in6addr_any;
 
             l_addr_ptr = (struct sockaddr *)&l_srv_addr6;
-            l_addr_len = sizeof(l_srv_addr6);
+            l_addr_len = sizeof(l_srv_addr6);*/
 /*
             if (g_ipv4) {
                 // Dual-stack socket
@@ -281,6 +309,8 @@ int main( int t_narg, char **t_args )
             getpeername( l_sock_server, ( sockaddr * ) &l_cl_addr, &l_lsa );
             log_msg( LOG_INFO, "Server IP: '%s'  port: %d",
                      inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
+
+//            l_sock_server
 
 /*
             l_sock_server = socket(AF_INET, SOCK_STREAM, 0);
@@ -394,12 +424,38 @@ int main( int t_narg, char **t_args )
             else
                 log_msg( LOG_DEBUG, "Read %d bytes from stdin.", l_len );
 
-            // send data to server
-            l_len = write( l_sock_server, l_buf, l_len );
-            if ( l_len < 0 )
-                log_msg( LOG_ERROR, "Unable to send data to server." );
-            else
-                log_msg( LOG_DEBUG, "Sent %d bytes to server.", l_len );
+            if(g_socket) {
+                // TODO
+            } else if(g_ipv4) {
+                // send data to server
+                l_len = write(l_sock_server, l_buf, l_len);
+                if (l_len < 0)
+                    log_msg(LOG_ERROR, "Unable to send data to server.");
+                else
+                    log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
+            } else if (g_ipv6) {
+                /* Send data to server */
+                l_len = write(sock_fd, l_buf, l_len);
+                if (l_len < 0)
+                    log_msg(LOG_ERROR, "Unable to send data to server.");
+                else
+                    log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
+
+                /* ret = write(sock_fd, &ch, 1);
+                 if (ret == -1) {
+                     perror("write");
+                     close(sock_fd);
+                     return EXIT_FAILURE;
+                 }*/
+/*
+                *//* Wait for data from server *//*
+                ret = read(sock_fd, &ch, 1);
+                if (ret == -1) {
+                    perror("read()");
+                    close(sock_fd);
+                    return EXIT_FAILURE;
+                }*/
+            }
         }
 
         // data from server?
