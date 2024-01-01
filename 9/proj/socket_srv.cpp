@@ -90,11 +90,11 @@ void help( int t_narg, char **t_args ) {
                 "\n"
                 "  Socket server example.\n"
                 "\n"
-                "  Use: %s [-u -4 -6 -h -d] port_number\n"
+                "  Use: %s [-u <socket_file> | -4 <port> | -6 <port> | -h | -d]\n"
                 "\n"
-                "    -u  unix socket (default, priority 1)\n"
-                "    -4  IPv4 (priority 2)\n"
-                "    -6  IPv6 (priority 3)\n"
+                "    -u <socket_file>  unix socket (default, priority 1)\n"
+                "    -4 <port>  IPv4 (priority 2)\n"
+                "    -6 <port>  IPv6 (priority 3)\n"
                 "    -d  debug mode \n"
                 "    -h  this help\n"
                 "\n", t_args[ 0 ] );
@@ -209,17 +209,6 @@ int main( int t_narg, char **t_args ) {
         {
             printf("Error on listen call \n");
         }
-
-/*        unsigned int sock_len = 0;
-        printf("Waiting for connection.... \n");
-        if( (s2 = accept(s, (struct sockaddr*)&remote, &sock_len)) == -1 )
-        {
-            printf("Error on accept() call \n");
-            return 1;
-        }*/
-
-//        l_sock_client = s2;
-//        printf("Server connected \n");
         printf("Server started\n");
 
     } else if (g_ipv4 || g_ipv6) {
@@ -358,18 +347,6 @@ int main( int t_narg, char **t_args ) {
 
             if ( l_read_poll[ 1 ].events) {
                 if (g_socket) {
-                    /*
-                    // l_sock_client = accept(socket_sock, NULL, 0);
-                    unsigned int sock_len = 0;
-                    printf("Waiting for connection.... \n");
-                    if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
-                        printf("Error on accept() call \n");
-                        return 1;
-                    }
-                    printf("Connected... \n");
-                    */
-
-//                l_sock_client = accept(socket_sock, NULL, 0);
                     unsigned int sock_len = 0;
                     printf("Waiting for connection.... \n");
                     if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
@@ -389,20 +366,7 @@ int main( int t_narg, char **t_args ) {
                 int l_rsa_size = sizeof( l_rsa );
                 // new connection
                 if (g_socket == 1) {
-                    /*
-                    // l_sock_client = accept(socket_sock, NULL, 0);
-                    unsigned int sock_len = 0;
-                    printf("Waiting for connection.... \n");
-                    if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
-                        printf("Error on accept() call \n");
-                        return 1;
-                    }
-                    printf("Connected... \n");
-                    */
-
-//                    if (g_socket == 1 && s2 == 0) {
-                    if (g_socket) {
-//                    l_sock_client = accept(socket_sock, NULL, 0);
+                 /*   if (g_socket) {
                         unsigned int sock_len = 0;
                         printf("Waiting for connection.... \n");
                         if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
@@ -411,8 +375,7 @@ int main( int t_narg, char **t_args ) {
                         }
                         l_sock_client = s2;
                         printf("Connected... \n");
-                    }
-
+                    }*/
                 } else {
                     if(g_ipv6) {
                         client_sock_fd = accept(l_sock_listen,

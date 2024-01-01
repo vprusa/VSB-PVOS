@@ -205,57 +205,6 @@ int main( int t_narg, char **t_args ) {
     sockaddr_un sun;
 
     if(g_socket == 1) {
-        /*
-//            int sock = socket( AF_UNIX, SOCK_STREAM , 0 );
-        data_socket = socket( AF_UNIX, SOCK_STREAM , 0 );
-//        data_socket = socket( AF_UNIX, SOCK_DGRAM, 0 );
-
-        int retry = 10;
-        sun. sun_family = AF_UNIX;
-        strcpy( sun. sun_path , TMP_FILE );
-        while(retry-- > 0) {
-            int con_res = connect(data_socket, (sockaddr *) &sun, sizeof(sun));
-            if (con_res == -1) {
-                log_msg(LOG_DEBUG, "Unable to connect to server.");
-            } else {
-                break;
-            }
-        }
-        l_sock_server = data_socket;
-// communication by sock
-//            close( sock );
-         */
-/*
-        sun.sun_family = AF_UNIX;
-        strcpy( sun.sun_path, TMP_FILE );
-        int data_len = strlen(sun.sun_path) + sizeof(sun.sun_family);
-
-        printf("Client: Trying to connect... \n");
-        if( connect(data_socket, (struct sockaddr*)&sun, data_len) == -1 ) {
-            printf("Client: Error on connect call \n");
-            return 1;
-        }
-        */
-/*
-        int retry = 10;
-        sun. sun_family = AF_UNIX;
-//        strcpy( sun. sun_path , "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
-        strcpy( sun. sun_path , TMP_FILE );
-        while(--retry > 0) {
-            int data_len = strlen(sun.sun_path) + sizeof(sun.sun_family);
-//            int con_res = connect(data_socket, (struct sockaddr *) &sun, sizeof(sun));
-            int con_res = connect(data_socket, (struct sockaddr *) &sun, data_len);
-            if (con_res == -1) {
-                log_msg(LOG_DEBUG, "Unable to connect to server.");
-            } else {
-                printf("Unable to connect, quitting\n");
-            }
-        }
-        if(retry <= 0) {
-            printf("Unable to connect, quitting\n");
-            exit(1);
-        }*/
-//        static const char* socket_path = "/tmp/sock_test";
         static const unsigned int s_recv_len = 200;
         static const unsigned int s_send_len = 100;
         int sock = 0;
@@ -382,29 +331,6 @@ int main( int t_narg, char **t_args ) {
     {
         char l_buf[ 128 ];
 
-        int timeout = -1;
-        if (g_socket == 1) {
-            timeout = 1000;
-        }
-/*        if (g_socket == 1) {
-
-            // select from fds
-            if (poll(l_read_poll1, 2, timeout) < 0) {
-                log_msg( LOG_ERROR, "Idk. poll 1" );
-//                continue;
-            };
-            if (poll(l_read_poll2, 2, timeout) < 0) {
-                log_msg( LOG_ERROR, "Idk. poll 2" );
-//                continue;
-            };
-//            log_msg( LOG_ERROR, "Idk." );
-
-        } else {
-            if (poll(l_read_poll, 2, -1) < 0) {
-            }
-        }
-        */
-
         if (poll(l_read_poll, 2, -1) < 0) {
             log_msg( LOG_ERROR, "Idk." );
         }
@@ -413,7 +339,6 @@ int main( int t_narg, char **t_args ) {
         // data on stdin?
         if ( l_read_poll[ 0 ].revents & POLLIN ) {
             //  read from stdin
-//            int l_len = read( STDIN_FILENO, l_buf, sizeof( l_buf ) );
             int l_len = read( 0, l_buf, sizeof( l_buf ) );
             if ( l_len < 0 ) {
                 log_msg( LOG_ERROR, "Unable to read from stdin." );
@@ -480,65 +405,6 @@ int main( int t_narg, char **t_args ) {
             }
         }
     }
-
-/*
-
-    // go!
-    while (1) {
-        char l_buf[128];
-
-        // select from fds
-        if (poll(l_read_poll, 2, -1) < 0) break;
-
-        // data on stdin?s
-        if (l_read_poll[0].revents & POLLIN) {
-            //  read from stdin
-            int l_len = read(STDIN_FILENO, l_buf, sizeof(l_buf));
-            if (l_len < 0)
-                log_msg(LOG_ERROR, "Unable to read from stdin.");
-            else
-                log_msg(LOG_DEBUG, "Read %d bytes from stdin.", l_len);
-
-            // send data to server
-            l_len = write(l_sock_server, l_buf, l_len);
-            if (l_len < 0)
-                log_msg(LOG_ERROR, "Unable to send data to server.");
-            else
-                log_msg(LOG_DEBUG, "Sent %d bytes to server.", l_len);
-        }
-
-        // data from server?
-        if (l_read_poll[1].revents & POLLIN) {
-            // read data from server
-//                int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-            int l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-            if(g_socket == 1) {
-            } else if (g_ipv4) {
-                log_msg( LOG_DEBUG, "g_ipv4" );
-                l_len = read(l_sock_server, l_buf, sizeof(l_buf));
-            }
-            if (!l_len) {
-                log_msg(LOG_DEBUG, "Server closed socket.");
-                break;
-            } else if (l_len < 0) {
-                log_msg(LOG_ERROR, "Unable to read data from server.");
-                break;
-            } else
-                log_msg(LOG_DEBUG, "Read %d bytes from server.", l_len);
-
-            // display on stdout
-            l_len = write(STDOUT_FILENO, l_buf, l_len);
-            if (l_len < 0)
-                log_msg(LOG_ERROR, "Unable to write to stdout.");
-
-            // request to close?
-            if (!strncasecmp(l_buf, STR_CLOSE, strlen(STR_CLOSE))) {
-                log_msg(LOG_INFO, "Connection will be closed...");
-                break;
-            }
-        }
-    }
-*/
 
     // close socket
     close(l_sock_server);
