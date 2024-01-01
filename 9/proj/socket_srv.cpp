@@ -53,7 +53,7 @@ int g_debug = LOG_INFO;
 int g_socket = 0;
 int g_ipv4 = 0;
 int g_ipv6 = 0;
-static const char* socket_path = "/tmp/mysocket";
+//static const char* socket_path = "/tmp/mysocket";
 
 void log_msg( int t_log_level, const char *t_form, ... ) {
     const char *out_fmt[] = {
@@ -112,12 +112,15 @@ int main( int t_narg, char **t_args ) {
     if ( t_narg <= 1 ) { help( t_narg, t_args ); }
 
     int l_port = 0;
+    char *filename = NULL;
 
     // parsing arguments
     for ( int i = 1; i < t_narg; i++ ) {
 
         if ( !strcmp( t_args[ i ], "-u" ) ) {
             g_socket = 1;
+            filename = t_args[i + 1];
+            i++; // Skip next arg
         }
 
         if ( !strcmp( t_args[ i ], "-4" ) ) {
@@ -150,27 +153,19 @@ int main( int t_narg, char **t_args ) {
         g_ipv6 = 0;
     }
 
-    if ( l_port <= 0 ) {
+    if (!g_socket &&  l_port <= 0 ) {
         log_msg( LOG_INFO, "Bad or missing port number %d!", l_port );
         help( t_narg, t_args );
     }
 
-    log_msg( LOG_INFO, "Server will listen on port: %d.", l_port );
+    if(g_ipv4 || g_ipv6) {
+        log_msg( LOG_INFO, "Server will listen on port: %d.", l_port );
+    }
 
     int l_sock_listen;
     in_addr l_addr_any = {INADDR_ANY};
     sockaddr_in l_srv_addr;
     struct sockaddr_in6 l_srv_addr6 = {};
-//    struct sockaddr_in l_srv_addr = {};
-
-    int domain = AF_UNIX;
-    if(g_socket == 1) { // TODO if(g_socket)
-        domain = AF_UNIX;
-    } else if (g_ipv4 == 1) {
-        domain = AF_INET;
-    } else if (g_ipv6 == 1) {
-        domain = AF_INET6;
-    }
 
     int socket_sock;
     sockaddr_un sun, remote;
@@ -185,86 +180,41 @@ int main( int t_narg, char **t_args ) {
     int l_sock_client = -1;
 
     if(g_socket == 1) {
-
- /*       socket_sock = socket( AF_UNIX, SOCK_STREAM , 0 );
-//        socket_sock = socket( AF_UNIX, SOCK_DGRAM, 0 );
-
-        sun.sun_family = AF_UNIX;
-        strcpy( sun.sun_path , TMP_FILE ); // todo param
-        bind( socket_sock, ( sockaddr * ) &sun, sizeof( sun ));
-        listen( socket_sock, 1 );
-
-        while(l_sock_client== -1) {
-            l_sock_client = accept(socket_sock, NULL, 0);
-        }
-        */
-/*
-        socket_sock = socket(AF_UNIX, SOCK_STREAM, 0);
-        if( -1 == socket_sock ) {
-            printf("Error on socket() call \n");
-            return 1;
-        }
-
-        sun.sun_family = AF_UNIX;
-//        strcpy( local.sun_path, socket_path );
-//        strcpy( sun. sun_path , "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
-        strcpy( sun.sun_path , TMP_FILE ); // todo param
-        unlink(sun.sun_path);
-        int len = strlen(sun.sun_path) + sizeof(sun.sun_family);
-        if( bind(socket_sock, (struct sockaddr*)&sun, len) != 0) {
-            printf("Error on binding socket \n");
-            return 1;
-        }
-
-        if(listen(socket_sock, 1) != 0 ) {
-            printf("Error on listen call \n");
-        }
-
-        unsigned int sock_len = 0;
-        printf("Waiting for connection.... \n");
-//        if((l_sock_client = accept(socket_sock, (struct sockaddr*)&sun,
-//                                   &sock_len)) == -1 ) {
-        if((l_sock_client = accept(socket_sock, (struct sockaddr*)&remote,
-                                   &sock_len)) == -1 ) {
-            printf("Error on accept() call \n");
-            return 1;
-        }*/
-
-//create server side
+        //create server side
         int s = 0;
         struct sockaddr_un local, remote;
         int len = 0;
 
-        s = socket(AF_UNIX, SOCK_STREAM, 0);
+        socket_sock = socket(AF_UNIX, SOCK_STREAM, 0);
         if( -1 == s )
         {
             printf("Error on socket() call \n");
             return 1;
         }
-        socket_sock = s;
-        l_sock_client = s;
+//        socket_sock = s;
+        l_sock_client = socket_sock;
         local.sun_family = AF_UNIX;
-        strcpy( local.sun_path, socket_path );
+        strcpy( local.sun_path, filename );
         unlink(local.sun_path);
         len = strlen(local.sun_path) + sizeof(local.sun_family);
-        if( bind(s, (struct sockaddr*)&local, len) != 0)
+        if(bind(socket_sock, (struct sockaddr*)&local, len) != 0)
         {
             printf("Error on binding socket \n");
             return 1;
         }
 
-        if( listen(s, 1) != 0 )
+        if( listen(socket_sock, 1) != 0 )
         {
             printf("Error on listen call \n");
         }
 
-        unsigned int sock_len = 0;
+/*        unsigned int sock_len = 0;
         printf("Waiting for connection.... \n");
         if( (s2 = accept(s, (struct sockaddr*)&remote, &sock_len)) == -1 )
         {
             printf("Error on accept() call \n");
             return 1;
-        }
+        }*/
 
         l_sock_client = s2;
         printf("Server connected \n");
@@ -307,7 +257,7 @@ int main( int t_narg, char **t_args ) {
                 }
 
                 /* Create listening queue (client requests) */
-                ret = listen(listen_sock_fd, 10); // CLIENT_QUEUE_LEN);
+                ret = listen(listen_sock_fd, 10); // CLIENT_QUEUE_LEN
                 if (ret == -1) {
                     perror("listen()");
                     close(listen_sock_fd);
@@ -319,7 +269,7 @@ int main( int t_narg, char **t_args ) {
                 client_addr_len = sizeof(client_addr);
             } else {
                 // IPv4 socket
-                l_sock_listen = socket(domain, SOCK_STREAM, 0);
+                l_sock_listen = socket(AF_INET, SOCK_STREAM, 0);
                 if (l_sock_listen == -1) {
                     log_msg(LOG_ERROR, "Unable to create IPv4 socket.");
                     exit(1);
@@ -333,7 +283,8 @@ int main( int t_narg, char **t_args ) {
 
                 // Enable the port number reusing
                 int l_opt = 1;
-                if ( setsockopt( l_sock_listen, SOL_SOCKET, SO_REUSEADDR, &l_opt, sizeof( l_opt ) ) < 0 )
+                if ( setsockopt( l_sock_listen, SOL_SOCKET, SO_REUSEADDR,
+                                 &l_opt, sizeof( l_opt ) ) < 0 )
                     log_msg( LOG_ERROR, "Unable to set socket option!" );
 
                 // assign port number to socket
@@ -370,20 +321,26 @@ int main( int t_narg, char **t_args ) {
         l_read_poll[ 1 ].fd = l_sock_listen;
         l_read_poll[ 1 ].events = POLLIN;
         // https://www.man7.org/linux/man-pages/man7/unix.7.html - todo ...
-        while ( 1 ) // wait for new client
-        {
+        while ( 1 ) { // wait for new client
             // select from fds
-
             if (g_socket == 1) {
-//                l_sock_client = accept(socket_sock, NULL, 0);
-       /*
+                // l_sock_client = accept(socket_sock, NULL, 0);
+                /*
                 unsigned int sock_len = 0;
                 printf("Waiting for connection.... \n");
                 if((l_sock_client = accept(socket_sock, (struct sockaddr*)&remote,
                         &sock_len)) == -1 ) {
                     printf("Error on accept() call \n");
                     return 1;
-                }*/
+                }
+                */
+
+                unsigned int sock_len = 0;
+                printf("Waiting for connection.... \n");
+                if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
+                    printf("Error on accept() call \n");
+                    return 1;
+                }
             }
 
             int timeout = -1;
@@ -402,16 +359,14 @@ int main( int t_narg, char **t_args ) {
             if ( l_read_poll[ 0 ].revents & POLLIN ) { // data on stdin
                 char buf[ 128 ];
                 int len = read( STDIN_FILENO, buf, sizeof( buf) );
-                if ( len < 0 )
-                {
+                if ( len < 0 ) {
                     log_msg( LOG_DEBUG, "Unable to read from stdin!" );
                     exit( 1 );
                 }
 
                 log_msg( LOG_DEBUG, "Read %d bytes from stdin" );
                 // request to quit?
-                if ( !strncmp( buf, STR_QUIT, strlen( STR_QUIT ) ) )
-                {
+                if ( !strncmp( buf, STR_QUIT, strlen(STR_QUIT)) ) {
                     log_msg( LOG_INFO, "Request to 'quit' entered.");
                     close( l_sock_listen );
                     exit( 0 );

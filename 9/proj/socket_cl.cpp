@@ -49,7 +49,7 @@
 #define LOG_DEBUG               2       // debug messages
 
 
-static const char* socket_path = "/tmp/mysocket";
+//static const char* socket_path = "/tmp/mysocket";
 
 // debug flag
 int g_debug = LOG_INFO;
@@ -92,11 +92,12 @@ void help( int t_narg, char **t_args ) {
             "\n"
             "  Socket client example.\n"
             "\n"
-            "  Use: %s [-u -4 -6 -h -d] ip_or_name port_number\n"
+//            "  Use: %s [-u -4 -6 -h -d] ip_or_name port_number\n"
+            "  Use: %s [-u <socket_file> | -4 <ip_or_hostname> <port> | -6  <ip_or_hostname> <port> | -h | -d]\n"
             "\n"
-            "    -u  unix socket (default, priority 1)\n"
-            "    -4  IPv4 (priority 2)\n"
-            "    -6  IPv6 (priority 3)\n"
+            "    -u <socket_file>  unix socket (default, priority 1)\n"
+            "    -4 <ip_or_hostname> <port>  IPv4 (priority 2)\n"
+            "    -6 <ip_or_hostname> <port>  IPv6 (priority 3)\n"
             "    -d  debug mode \n"
             "    -h  this help\n"
             "\n", t_args[ 0 ] );
@@ -116,12 +117,15 @@ int main( int t_narg, char **t_args ) {
 
     int l_port = 0;
     char *l_host = nullptr;
+    char *socket_file = NULL;
 
     // parsing arguments
     for ( int i = 1; i < t_narg; i++ ) {
 
         if ( !strcmp( t_args[ i ], "-u" ) ) {
             g_socket = 1;
+            socket_file = t_args[i + 1];
+            i++; // Skip next arg
         }
 
         if ( !strcmp( t_args[ i ], "-4" ) ) {
@@ -132,11 +136,13 @@ int main( int t_narg, char **t_args ) {
             g_ipv6 = 1;
         }
 
-        if ( !strcmp( t_args[ i ], "-d" ) )
+        if ( !strcmp( t_args[ i ], "-d" ) ) {
             g_debug = LOG_DEBUG;
+        }
 
-        if ( !strcmp( t_args[ i ], "-h" ) )
+        if ( !strcmp( t_args[ i ], "-h" ) ) {
             help( t_narg, t_args );
+        }
 
         if ( *t_args[ i ] != '-' )
         {
@@ -165,7 +171,6 @@ int main( int t_narg, char **t_args ) {
 //    log_msg( LOG_INFO, "Connection to '%s':%d.", l_host, l_port );
 
     if (g_socket != 1) {
-
         addrinfo l_ai_req, *l_ai_ans;
         bzero(&l_ai_req, sizeof(l_ai_req));
         int domain = AF_UNIX;
@@ -269,7 +274,7 @@ int main( int t_narg, char **t_args ) {
         }
 
         remote.sun_family = AF_UNIX;
-        strcpy( remote.sun_path, socket_path );
+        strcpy(remote.sun_path, socket_file );
         data_len = strlen(remote.sun_path) + sizeof(remote.sun_family);
 
         printf("Client: Trying to connect... \n");
@@ -352,7 +357,6 @@ int main( int t_narg, char **t_args ) {
                      inet_ntoa( l_cl_addr.sin_addr ), ntohs( l_cl_addr.sin_port ) );
 
         }
-
     }
 
     log_msg(LOG_INFO, "Enter 'close' to close application.");
@@ -398,7 +402,8 @@ int main( int t_narg, char **t_args ) {
         } else {
             if (poll(l_read_poll, 2, -1) < 0) {
             }
-        }*/
+        }
+        */
 
         if (poll(l_read_poll, 2, -1) < 0) {
             log_msg( LOG_ERROR, "Idk." );
