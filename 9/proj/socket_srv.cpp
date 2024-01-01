@@ -70,14 +70,14 @@ void log_msg( int t_log_level, const char *t_form, ... ) {
     va_end( l_arg );
 
     switch ( t_log_level ) {
-    case LOG_INFO:
-    case LOG_DEBUG:
-        fprintf( stdout, out_fmt[ t_log_level ], l_buf );
-        break;
+        case LOG_INFO:
+        case LOG_DEBUG:
+            fprintf( stdout, out_fmt[ t_log_level ], l_buf );
+            break;
 
-    case LOG_ERROR:
-        fprintf( stderr, out_fmt[ t_log_level ], errno, strerror( errno ), l_buf );
-        break;
+        case LOG_ERROR:
+            fprintf( stderr, out_fmt[ t_log_level ], errno, strerror( errno ), l_buf );
+            break;
     }
 }
 
@@ -87,17 +87,17 @@ void log_msg( int t_log_level, const char *t_form, ... ) {
 void help( int t_narg, char **t_args ) {
     if ( t_narg <= 1 || !strcmp( t_args[ 1 ], "-h" ) ) {
         printf(
-            "\n"
-            "  Socket server example.\n"
-            "\n"
-            "  Use: %s [-u -4 -6 -h -d] port_number\n"
-            "\n"
-            "    -u  unix socket (default, priority 1)\n"
-            "    -4  IPv4 (priority 2)\n"
-            "    -6  IPv6 (priority 3)\n"
-            "    -d  debug mode \n"
-            "    -h  this help\n"
-            "\n", t_args[ 0 ] );
+                "\n"
+                "  Socket server example.\n"
+                "\n"
+                "  Use: %s [-u -4 -6 -h -d] port_number\n"
+                "\n"
+                "    -u  unix socket (default, priority 1)\n"
+                "    -4  IPv4 (priority 2)\n"
+                "    -6  IPv6 (priority 3)\n"
+                "    -d  debug mode \n"
+                "    -h  this help\n"
+                "\n", t_args[ 0 ] );
 
         exit( 0 );
     }
@@ -112,14 +112,14 @@ int main( int t_narg, char **t_args ) {
     if ( t_narg <= 1 ) { help( t_narg, t_args ); }
 
     int l_port = 0;
-    char *filename = NULL;
+    char *socket_file = NULL;
 
     // parsing arguments
     for ( int i = 1; i < t_narg; i++ ) {
 
         if ( !strcmp( t_args[ i ], "-u" ) ) {
             g_socket = 1;
-            filename = t_args[i + 1];
+            socket_file = t_args[i + 1];
             i++; // Skip next arg
         }
 
@@ -191,10 +191,12 @@ int main( int t_narg, char **t_args ) {
             printf("Error on socket() call \n");
             return 1;
         }
-//        socket_sock = s;
         l_sock_client = socket_sock;
+        printf("Connecting to socket file, %s\n", socket_file);
+
+//        socket_sock = s;
         local.sun_family = AF_UNIX;
-        strcpy( local.sun_path, filename );
+        strcpy( local.sun_path, socket_file );
         unlink(local.sun_path);
         len = strlen(local.sun_path) + sizeof(local.sun_family);
         if(bind(socket_sock, (struct sockaddr*)&local, len) != 0)
@@ -216,8 +218,9 @@ int main( int t_narg, char **t_args ) {
             return 1;
         }*/
 
-        l_sock_client = s2;
-        printf("Server connected \n");
+//        l_sock_client = s2;
+//        printf("Server connected \n");
+        printf("Server started\n");
 
     } else if (g_ipv4 || g_ipv6) {
         // TODO g_ipv4 || g_ipv6
@@ -323,35 +326,15 @@ int main( int t_narg, char **t_args ) {
         // https://www.man7.org/linux/man-pages/man7/unix.7.html - todo ...
         while ( 1 ) { // wait for new client
             // select from fds
-            if (g_socket == 1) {
-                // l_sock_client = accept(socket_sock, NULL, 0);
-                /*
-                unsigned int sock_len = 0;
-                printf("Waiting for connection.... \n");
-                if((l_sock_client = accept(socket_sock, (struct sockaddr*)&remote,
-                        &sock_len)) == -1 ) {
-                    printf("Error on accept() call \n");
-                    return 1;
-                }
-                */
-
-                unsigned int sock_len = 0;
-                printf("Waiting for connection.... \n");
-                if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
-                    printf("Error on accept() call \n");
-                    return 1;
-                }
-            }
 
             int timeout = -1;
             if (g_socket == 1) {
-                timeout = -1;
+                timeout = 10;
             }
 
             int l_poll = poll( l_read_poll, 2, timeout);
 
-            if ( l_poll < 0 )
-            {
+            if ( l_poll < 0 ) {
                 log_msg( LOG_ERROR, "Function poll failed!" );
                 exit( 1 );
             }
@@ -373,13 +356,62 @@ int main( int t_narg, char **t_args ) {
                 }
             }
 
+            if ( l_read_poll[ 1 ].events) {
+                if (g_socket) {
+                    /*
+                    // l_sock_client = accept(socket_sock, NULL, 0);
+                    unsigned int sock_len = 0;
+                    printf("Waiting for connection.... \n");
+                    if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
+                        printf("Error on accept() call \n");
+                        return 1;
+                    }
+                    printf("Connected... \n");
+                    */
+
+//                l_sock_client = accept(socket_sock, NULL, 0);
+                    unsigned int sock_len = 0;
+                    printf("Waiting for connection.... \n");
+                    if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
+                        printf("Error on accept() call \n");
+                        return 1;
+                    }
+                    l_sock_client = s2;
+                    printf("Connected... \n");
+                    l_read_poll[1].fd = s2;
+                    break;
+                }
+            }
+
             if ( l_read_poll[ 1 ].revents & POLLIN ) {
                 // new client?
                 sockaddr_in l_rsa;
                 int l_rsa_size = sizeof( l_rsa );
                 // new connection
                 if (g_socket == 1) {
+                    /*
+                    // l_sock_client = accept(socket_sock, NULL, 0);
+                    unsigned int sock_len = 0;
+                    printf("Waiting for connection.... \n");
+                    if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
+                        printf("Error on accept() call \n");
+                        return 1;
+                    }
+                    printf("Connected... \n");
+                    */
+
+//                    if (g_socket == 1 && s2 == 0) {
+                    if (g_socket) {
 //                    l_sock_client = accept(socket_sock, NULL, 0);
+                        unsigned int sock_len = 0;
+                        printf("Waiting for connection.... \n");
+                        if((s2 = accept(socket_sock, (struct sockaddr*)&remote, &sock_len)) == -1 ) {
+                            printf("Error on accept() call \n");
+                            return 1;
+                        }
+                        l_sock_client = s2;
+                        printf("Connected... \n");
+                    }
 
                 } else {
                     if(g_ipv6) {
@@ -426,9 +458,9 @@ int main( int t_narg, char **t_args ) {
         } // while wait for client
 
         // change source from sock_listen to sock_client
-        if(g_socket != 1) {
-            l_read_poll[ 1 ].fd = l_sock_client;
-        }
+//        if(g_socket != 1) {
+        l_read_poll[ 1 ].fd = l_sock_client;
+//        }
 
         while ( 1  )
         { // communication
@@ -461,21 +493,13 @@ int main( int t_narg, char **t_args ) {
                         log_msg(LOG_ERROR, "Unable to send data to client.");
                     else
                         log_msg(LOG_DEBUG, "Sent %d bytes to client.", l_len);
-                } else if (g_ipv4) {
+                } else if (g_ipv4 || g_ipv6) {
                     // send data to client
                     l_len = write(l_sock_client, l_buf, l_len);
                     if (l_len < 0)
                         log_msg(LOG_ERROR, "Unable to send data to client.");
                     else
                         log_msg(LOG_DEBUG, "Sent %d bytes to client.", l_len);
-                } else if (g_ipv6) {
-                    // send data to client
-                    l_len = write(l_sock_client, l_buf, l_len);
-                    if (l_len < 0) {
-                        log_msg(LOG_ERROR, "Unable to send data to client.");
-                    } else {
-                        log_msg(LOG_DEBUG, "Sent %d bytes to client.", l_len);
-                    }
                 }
             }
             // data from client?

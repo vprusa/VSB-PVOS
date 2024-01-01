@@ -37,9 +37,9 @@ SOCKET_FILE="/tmp/socket_file"
 SCREEN_SRV="pvos_9_srv"
 SCREEN_CL="pvos_9_cl"
 
-screen -dmS ${SCREEN_SRV} ./${OUT_SRV_FILE} -u "${SOCKET_FILE}"
+screen -dmS ${SCREEN_SRV} ./${OUT_SRV_FILE} -u "${SOCKET_FILE}" -d
 sleep 1
-screen -dmS ${SCREEN_CL} ./${OUT_CL_FILE} -u "${SOCKET_FILE}"
+screen -dmS ${SCREEN_CL} ./${OUT_CL_FILE} -u "${SOCKET_FILE}" -d
 sleep 1
 
 SCREEN_SRV_OUT="pvos_9_srv.out"

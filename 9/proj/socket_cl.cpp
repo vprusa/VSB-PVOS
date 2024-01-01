@@ -272,7 +272,7 @@ int main( int t_narg, char **t_args ) {
             printf("Client: Error on socket() call \n");
             return 1;
         }
-
+        printf("Connecting to socket file, %s\n", socket_file);
         remote.sun_family = AF_UNIX;
         strcpy(remote.sun_path, socket_file );
         data_len = strlen(remote.sun_path) + sizeof(remote.sun_family);
