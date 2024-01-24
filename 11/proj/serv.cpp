@@ -31,20 +31,49 @@
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
-void handle_client(int sd, SSL_CTX* ctx); // Function to handle client communication
+typedef struct {
+    int sd;
+    SSL_CTX* ctx;
+} thread_args;
 
-int main () {
+void handle_client(int sd, SSL_CTX* ctx);
+void* handle_client_thread(void* arguments);
+
+void help();
+void help() {
+    printf("Usage: serv [t]\n");
+    printf("  t - use threads instead fork for parallelism\n");
+}
+
+int main(int argc, char *argv[]) {
+
+    int use_thread = 0;
+    int use_fork = 1;
+    if (argc < 2) {
+        help();
+        return 2;
+    } else {
+        switch (argv[1][0]) {
+            case 't':
+                use_thread = 1;
+                use_fork = 0;
+                printf("Using threads instead forks\n");
+                break;
+            default:
+                help();
+        }
+    }
+
     // First lets setup listening for incoming connections
     int listen_sd;
     int client_fd;
     struct sockaddr_in socketAddrClient;
     socklen_t client_len;
-
-    int sd;
     struct sockaddr_in sa_serv;
     const SSL_METHOD *meth;
     SSL_CTX* ctx;
 
+    // init SSL
     SSL_load_error_strings();
     SSLeay_add_ssl_algorithms();
     meth = SSLv23_server_method();
@@ -68,69 +97,58 @@ int main () {
         exit(5);
     }
 
+    // Start listening
     listen_sd = socket (AF_INET, SOCK_STREAM, 0);   CHK_ERR(listen_sd, "socket");
-
-    int use_thread = 0;
-    int use_fork = 0;
-    if(use_fork) {
-        int fid = fork();
-        if (fid == 0) { // Child process
-            close(listen_sd); // Close listening socket in child
-            handle_client(sd, ctx); // Process the client's requests
-            exit(0);
-        } else if (fid > 0) { // Parent process
-            close(sd); // Close connected socket in parent
-        } else {
-            perror("Fork failed");
-            exit(1);
-        }
-    }
 
     memset (&sa_serv, '\0', sizeof(sa_serv));
     sa_serv.sin_family      = AF_INET;
     sa_serv.sin_addr.s_addr = INADDR_ANY;
     sa_serv.sin_port        = htons (1111);          /* Server Port number */
 
+    // err will be used as return variable for most of the functions, even `read` that may return size of read data
     int err = bind(listen_sd, (struct sockaddr*) &sa_serv, sizeof (sa_serv)); CHK_ERR(err, "bind");
     err = listen (listen_sd, 5);                    CHK_ERR(err, "listen");
 
-    /*
     while (1) {
-        struct sockaddr_in sa_cli;
-        client_len = sizeof(sa_cli);
-        sd = accept (listen_sd, (struct sockaddr*) &sa_cli, &client_len);
-        CHK_ERR(sd, "accept");
-        printf ("Connection from %x, port %x\n", sa_cli.sin_addr.s_addr, sa_cli.sin_port);
-
-        int pid = fork();
-        if (pid == 0) { // Child process
-            close(listen_sd); // Close listening socket in child
-            handle_client(sd, ctx); // Process the client's requests
-            exit(0);
-        } else if (pid > 0) { // Parent process
-            close(sd); // Close connected socket in parent
-        } else {
-            perror("Fork failed");
-            exit(1);
-        }
-    }
-    */
-
-    while (1) {
+        // wait for client to connect
         client_len = sizeof(socketAddrClient);
         client_fd = accept(listen_sd, (struct sockaddr*)&socketAddrClient, &client_len);
         CHK_ERR(client_fd, "accept");
 
-        int pid = fork();
-        if (pid == 0) { // Child process
-            close(listen_sd);
-            handle_client(client_fd, ctx);
-            exit(0);
-        } else if (pid > 0) { // Parent process
-            close(client_fd);
-        } else {
-            perror("Fork failed");
-            exit(1);
+        // start parallel...
+        if(use_fork) {
+            printf("Starting new fork...\n");
+            // ... fork
+            int pid = fork();
+            if (pid == 0) { // Child process
+                close(listen_sd);
+                handle_client(client_fd, ctx);
+                exit(0);
+            } else if (pid > 0) { // Parent process
+                close(client_fd);
+            } else {
+                perror("Fork failed");
+                exit(1);
+            }
+        } else if (use_thread) {
+            // ... thread
+            printf("Starting new thread...\n");
+            pthread_t tid;
+            thread_args* args = (thread_args*)malloc(sizeof(thread_args));
+            if (args == NULL) {
+                perror("Failed to allocate memory for thread arguments");
+                exit(1);
+            }
+            args->sd = client_fd;
+            args->ctx = ctx;
+
+            int ret = pthread_create(&tid, NULL, handle_client_thread, (void*)args);
+            if (ret != 0) {
+                perror("pthread_create failed");
+                exit(1);
+            }
+
+            pthread_detach(tid);  // Detach the thread so it runs independently
         }
     }
 
@@ -138,7 +156,18 @@ int main () {
     SSL_CTX_free (ctx); // Release context
 }
 
+void* handle_client_thread(void* arguments) {
+    printf("New thread handler stared...\n");
+    thread_args* args = (thread_args*)arguments;
+    handle_client(args->sd, args->ctx);
+    close(args->sd);
+    free(arguments); // Don't forget to free the allocated memory
+    printf("New thread handler stared...\n");
+    return NULL;
+}
+
 void handle_client(int sd, SSL_CTX* ctx) {
+    printf("New fork handler stared...\n");
     SSL* ssl;
     ssl = SSL_new (ctx);                           CHK_NULL(ssl);
     SSL_set_fd (ssl, sd);
@@ -163,13 +192,12 @@ void handle_client(int sd, SSL_CTX* ctx) {
         printf ("Client does not have certificate.\n");
     }
 
-    char buf[4096];
+    char buf[4096]; // may not be sufficient for long messages
     int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
     buf[read] = '\0';
     printf ("Got %d chars:'%s'\n", read, buf);
     // Prepare a message with the size of the received message
-    char message[1024];
-//    sprintf(message, "Received %d bytes: %s", read, buf);
+    char message[32];
     sprintf(message, "%d[b]", read);
 
     /*
