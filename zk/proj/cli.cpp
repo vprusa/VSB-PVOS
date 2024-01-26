@@ -235,20 +235,20 @@ int main(int argc, char *argv[]) {
         ) {
             log_msg(LOG_INFO, "Start download image...");
             // file ready to receive
+//            char * imgBuf = (char*) malloc(imageSize);
             char * imgBuf = (char*) malloc(imageSize);
 
             err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
 
-            char * buffer = 0;
-//        long length;
-            FILE * f = fopen (OUT_FILE, "w");
+            FILE * f = fopen (OUT_FILE, "wb");
 
             if (f) {
 //                buffer = (char*) malloc(outFileSize);
 //                if (buffer) {
 //                    fwrite (buffer, 1, outFileSize, f);
 //                }
-                fprintf(f, buffer);
+//                fprintf(f, imgBuf);
+                fwrite(imgBuf, 1, imageSize, f);
                 fclose (f);
             }
 

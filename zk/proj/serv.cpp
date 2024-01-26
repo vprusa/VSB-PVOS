@@ -466,6 +466,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //        sprintf(size_string_msg, "S:%d",
 //                outFileSize);
 //        SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
+//        void * bufferv = 0;
         char * buffer = 0;
 //        long length;
         FILE * f = fopen (IMG_OUT, "rb");
@@ -477,6 +478,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //            buffer = new char[100];
 //            size_t size = outFileSize;
             buffer = (char*) malloc(outFileSize);
+//            bufferv = malloc(outFileSize);
             if (buffer) {
 //                fread (buffer, 1, length, f);
                 fread (buffer, 1, outFileSize, f);
