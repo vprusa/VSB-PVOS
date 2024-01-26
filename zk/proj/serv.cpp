@@ -29,6 +29,10 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 
+
+#include <stdio.h>
+#include <time.h>
+
 #define HOME "./"
 #define CERTF  HOME "my.crt"
 #define KEYF  HOME  "my.key"
@@ -267,6 +271,9 @@ void* handle_client_thread(void* arguments) {
     return NULL;
 }
 
+
+
+
 void handle_client(int sd, SSL_CTX* ctx) {
     printf("New fork handler stared...\n");
     SSL* ssl;
@@ -293,23 +300,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
         printf ("Client does not have certificate.\n");
     }
 
-/*
-    char buf[4096]; // may not be sufficient for long messages
-    int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
-    buf[read] = '\0';
-    printf ("Got %d chars:'%s'\n", read, buf);
-
-    // Prepare a message with the size of the received message
-    char message[32];
-    sprintf(message, "%d[b]", read);
-
-    */
-/*
-     * Pro kontrolu by bylo vhodné, aby server klientovi zpět potvrdil, kolik bajtů přijat.
-     *//*
-
-    err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
-*/
     int retry_time = -1;
     int dim_width = -1;
     int dim_height = -1;
@@ -352,11 +342,39 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
     }
 
+    int t_sec = -1;
+    int t_min = -1;
+    int t_hours = -1;
+
     if(retry_time != -1
         && dim_width != -1
         && dim_height != -1
     ) {
         // get curren time
+        struct tm* ptr;
+        time_t t;
+        t = time(NULL);
+        ptr = localtime(&t);
+        log_msg(LOG_INFO, "Time: %s", asctime(ptr));
+        log_msg(LOG_INFO, "Time: %s", asctime(ptr));
+        t_sec = ptr->tm_sec;
+        t_min = ptr->tm_min;
+        t_hours = ptr->tm_hour;
+
+        int t_h1 = t_hours / 10;
+        int t_h2 = t_hours % 10;
+        int t_m1 = t_min / 10;
+        int t_m2 = t_min % 10;
+        int t_s1 = t_sec / 10;
+        int t_s2 = t_sec % 10;
+
+//        const char* message = "Msg!";
+//        SSL_write(ssl, message, strlen(message));
+        char time_string_msg[32];
+        sprintf(time_string_msg, "%d%d:%d%d:%d%d",
+                 t_h1, t_h2, t_m1, t_m2, t_s1, t_s2);
+        SSL_write(ssl, time_string_msg, strlen(time_string_msg));
+
         // select images
         // generate whole image
         // send size of image to client

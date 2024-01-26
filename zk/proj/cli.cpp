@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     } else {
         retry_time = atoi(argv[1]);
         char * dimensions = argv[2];
-        int dim_str_len = sizeof(dimensions);
+        int dim_str_len = strlen(dimensions);
         for(int i = 0 ; i < dim_str_len; i++) {
             if(dimensions[i] == 'x') {
                 dimensions[i] = '\0';
