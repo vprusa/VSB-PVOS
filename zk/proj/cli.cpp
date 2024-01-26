@@ -104,6 +104,21 @@ void help() {
 
 int main(int argc, char *argv[]) {
 
+    // opening image
+//    const char * p_name = "export DISPLAY=:1 ; /usr/bin/xdg-open ./img/recOut.jpg & disown";
+//    const char * p_name = "/usr/bin/xdg-open ./img/recOut.jpg";
+//    const char * p_name = "/usr/bin/xdg-open";
+//    char* p_args[] = {OUT_FILE, NULL};
+/*
+    const char * p_name = "echo asdasd";
+//    const char * p_name = "echo ";
+    char* p_args[] = {OUT_FILE, NULL};
+
+    execv(p_name, p_args);
+    log_msg(LOG_INFO,"opening file %s done\n", OUT_FILE);
+    exit(0);
+*/
+
     int use_thread = 0;
     int use_fork = 1;
     int retry_time = 1;
@@ -248,6 +263,14 @@ int main(int argc, char *argv[]) {
 
             receivedSizeLastTime = 0;
             log_msg(LOG_INFO, "Download image done");
+            // opening image
+            const char * p_name = "/usr/bin/xdg-open";
+            char* p_args[] = {OUT_FILE, NULL};
+            execv(p_name, p_args);
+
+            log_msg(LOG_INFO, "opening file %s done\n", OUT_FILE);
+
+
             continue;
         }
         err = SSL_read(ssl, buf, sizeof(buf) - 1);

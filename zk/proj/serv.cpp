@@ -451,7 +451,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
                         __null};
         // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
 //        execv(p_name, p_args);
-//        execv(p_name, p_args); // TODO crashing ... :/
+        execv(p_name, p_args); // TODO crashing ... :/
         log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
 
         int outFileSize = findSize(IMG_OUT);
