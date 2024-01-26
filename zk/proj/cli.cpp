@@ -64,6 +64,8 @@
 #define LOG_INFO                1       // information and notifications
 #define LOG_DEBUG               2       // debug messages
 
+
+#define OUT_FILE "./img/recOut.jpg"
 // debug flag
 int g_debug = LOG_INFO;
 //static const char* socket_path = "/tmp/mysocket";
@@ -228,7 +230,6 @@ int main(int argc, char *argv[]) {
     int imageSize = -1;
     int receivedSizeLastTime = 0;
     while(1) {
-
         if(receivedSizeLastTime != 0
             && imageSize != -1
         ) {
@@ -238,13 +239,27 @@ int main(int argc, char *argv[]) {
 
             err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
 
+            char * buffer = 0;
+//        long length;
+            FILE * f = fopen (OUT_FILE, "w");
+
+            if (f) {
+//                buffer = (char*) malloc(outFileSize);
+//                if (buffer) {
+//                    fwrite (buffer, 1, outFileSize, f);
+//                }
+                fprintf(f, buffer);
+                fclose (f);
+            }
+
+
             receivedSizeLastTime = 0;
             log_msg(LOG_INFO, "Download image done");
             continue;
         }
         err = SSL_read(ssl, buf, sizeof(buf) - 1);
 //        CHK_SSL(err);
-        if(err < 1){
+        if(err < 1) {
             continue;
         }
 

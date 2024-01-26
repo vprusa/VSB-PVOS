@@ -467,18 +467,19 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                outFileSize);
 //        SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
         char * buffer = 0;
-        long length;
+//        long length;
         FILE * f = fopen (IMG_OUT, "rb");
 
         if (f) {
-            fseek (f, 0, SEEK_END);
-            length = ftell (f);
-            fseek (f, 0, SEEK_SET);
+//            fseek (f, 0, SEEK_END);
+//            length = ftell (f);
+//            fseek (f, 0, SEEK_SET);
 //            buffer = new char[100];
 //            size_t size = outFileSize;
             buffer = (char*) malloc(outFileSize);
             if (buffer) {
-                fread (buffer, 1, length, f);
+//                fread (buffer, 1, length, f);
+                fread (buffer, 1, outFileSize, f);
             }
             fclose (f);
         }
