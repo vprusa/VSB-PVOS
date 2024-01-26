@@ -32,10 +32,23 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include <time.h>
+#include <stdlib.h>
+
+#include <sys/wait.h>
+
 
 #define HOME "./"
 #define CERTF  HOME "my.crt"
 #define KEYF  HOME  "my.key"
+
+#define PNG_1 "./jedna.png"
+//#define PNG_TIME "./out.png"
+//#define PNG_TIME "./img/out.jpg"
+#define IMG_OUT "./img/out.jpg"
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
@@ -94,13 +107,57 @@ struct pollfd_ssl
 void handle_client(int sd, SSL_CTX* ctx);
 void* handle_client_thread(void* arguments);
 
-void help();
 void help() {
     printf("Usage: serv [t]\n");
     printf("  t - use threads instead fork for parallelism\n");
 }
 
+
+//long int findSize(char file_name[]) {
+long findSize(char * file_name) {
+    // opening the file in read mode
+    FILE* fp = fopen(file_name, "r");
+    // checking if the file exist or not
+    if (fp == NULL) {
+        printf("File Not Found!\n");
+        return -1;
+    }
+    fseek(fp, 0L, SEEK_END);
+    // calculating the size of the file
+    long res = ftell(fp);
+    // closing the file
+    fclose(fp);
+    return res;
+}
+
+
 int main(int argc, char *argv[]) {
+
+//    long png_1_size = findSize(PNG_1); // TODO
+//    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
+
+    // generate whole image
+
+//    execv(""); // child: call execv with the path and the args
+//    const char * p_name = "convert";
+    const char * p_name = "/usr/bin/convert";
+
+//    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+//    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+//    char* p_args[] = {"ls", "-l", NULL};
+    char * dims_str = "500x70!";
+    char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
+                      dims_str, // TODO replace dimension
+                      IMG_OUT,
+                      NULL};
+    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
+    execv(p_name, p_args);
+
+//    long png_1_size = findSize(PNG_1); // TODO
+//    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
+
+
+    exit(0);
 
     int use_poll = 1;
 
@@ -272,8 +329,6 @@ void* handle_client_thread(void* arguments) {
 }
 
 
-
-
 void handle_client(int sd, SSL_CTX* ctx) {
     printf("New fork handler stared...\n");
     SSL* ssl;
@@ -374,6 +429,9 @@ void handle_client(int sd, SSL_CTX* ctx) {
         sprintf(time_string_msg, "%d%d:%d%d:%d%d",
                  t_h1, t_h2, t_m1, t_m2, t_s1, t_s2);
         SSL_write(ssl, time_string_msg, strlen(time_string_msg));
+
+//        int png_1_size = findSize(PNG_1);
+//        log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
 
         // select images
         // generate whole image
