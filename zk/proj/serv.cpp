@@ -16,6 +16,7 @@
 #include <netdb.h>
 #include <signal.h> /* For signal() */
 #include <stdlib.h>
+#include <stdlib.h>
 
 #include <openssl/rsa.h>       /* SSLeay stuff */
 #include <openssl/crypto.h>
@@ -133,6 +134,37 @@ long findSize(char * file_name) {
 
 
 int main(int argc, char *argv[]) {
+
+
+    log_msg(LOG_INFO, "Generating Image %s...\n", IMG_OUT);
+
+    const char * p_name = "/usr/bin/convert";
+    char * dims_str = "500x70!";
+    char* p_args[] = {"./img/jedna.png","./img/jedna.png",
+                      "./img/jedna.png","-background",
+                      "grey","-alpha","remove","+append",
+                      "-resize",
+                      "500x70!", // TODO replace dimension
+                      "./img/out.jpg",
+                      NULL};
+    /*
+//                        __null};
+    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
+//        execv(p_name, p_args);
+//        execv(p_name, p_args); // TODO crashing ... :/
+    execv(p_name, p_args); // TODO crashing ... :/*/
+
+    int status = system("convert ./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! ./img/out2.jpg");
+
+//    char* envp[1];
+//    envp[0] = NULL;
+//    execve(p_name, p_args, envp);
+
+
+    log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
+
+
+    exit(0);
 
 //    long png_1_size = findSize(PNG_1); // TODO
 //    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
@@ -438,20 +470,37 @@ void handle_client(int sd, SSL_CTX* ctx) {
         // generate whole image
         log_msg(LOG_INFO, "Generating Image %s ...\n", IMG_OUT);
 
-        const char * p_name = "/usr/bin/convert";
+
+//    const char * p_name = "/usr/bin/convert";
 
 //    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
 //    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
 //    char* p_args[] = {"ls", "-l", NULL};
+/*
+
+        const char * p_name = "/usr/bin/convert";
         char * dims_str = "500x70!";
         char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
-                          dims_str, // TODO replace dimension
-                          IMG_OUT,
-//                          NULL};
-                        __null};
+//                          dims_str, // TODO replace dimension
+                          "500x70!", // TODO replace dimension
+//                          IMG_OUT,
+                          "./img/out.jpg",
+                          NULL};
+//                        __null};
         // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
 //        execv(p_name, p_args);
+//        execv(p_name, p_args); // TODO crashing ... :/
         execv(p_name, p_args); // TODO crashing ... :/
+*/
+
+        /*
+        const char * p_name = "echo";
+//        char * dims_str = "500x70!";
+        char* p_args[] = {IMG_OUT,
+                          NULL};
+        execv(p_name, p_args); // TODO crashing ... :/
+        */
+
         log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
 
         int outFileSize = findSize(IMG_OUT);
