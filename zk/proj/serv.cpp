@@ -310,9 +310,9 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
     err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
 */
-    int retry_time = 1;
-    int dim_width = 0;
-    int dim_height = 0;
+    int retry_time = -1;
+    int dim_width = -1;
+    int dim_height = -1;
 
     char buf[4096]; // may not be sufficient for long messages
     int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
@@ -349,26 +349,22 @@ void handle_client(int sd, SSL_CTX* ctx) {
             dim_height = atoi(buf_i_h);
             log_msg(LOG_INFO,"Height: %d", dim_height);
 
-
-            /*char * buf2 = buf_i += buf_idx;
-
-//            buf_idx = 1;
-            while(buf[buf_idx] != 'H') {
-                buf_idx++;
-            }
-            buf_i[buf_idx] = '\0';
-            dim_width = atoi(buf_i);
-            log_msg(LOG_INFO,"Width: %d", dim_width);
-
-            buf_i += buf_idx;
-//            buf_idx = 1;
-            while(buf[buf_idx] != '\0') {
-                buf_idx++;
-            }
-            buf_i[buf_idx] = '\0';
-            dim_height = atoi(buf_i);
-            log_msg(LOG_INFO,"Height: %d", dim_height);*/
         }
+    }
+
+    if(retry_time != -1
+        && dim_width != -1
+        && dim_height != -1
+    ) {
+        // get curren time
+        // select images
+        // generate whole image
+        // send size of image to client
+        // send image to client
+        // wait for response
+        // wait <retry_time> seconds to send data again
+    } else {
+        // TODO print problem
     }
 
 
