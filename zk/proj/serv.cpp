@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <signal.h> /* For signal() */
+#include <stdlib.h>
 
 #include <openssl/rsa.h>       /* SSLeay stuff */
 #include <openssl/crypto.h>
@@ -136,28 +137,28 @@ int main(int argc, char *argv[]) {
 //    long png_1_size = findSize(PNG_1); // TODO
 //    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
 
-    // generate whole image
+//    // generate whole image
+//
+////    execv(""); // child: call execv with the path and the args
+////    const char * p_name = "convert";
+//    const char * p_name = "/usr/bin/convert";
+//
+////    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+////    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+////    char* p_args[] = {"ls", "-l", NULL};
+//    char * dims_str = "500x70!";
+//    char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
+//                      dims_str, // TODO replace dimension
+//                      IMG_OUT,
+//                      NULL};
+//    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
+//    execv(p_name, p_args);
+//
+////    long png_1_size = findSize(PNG_1); // TODO
+////    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
 
-//    execv(""); // child: call execv with the path and the args
-//    const char * p_name = "convert";
-    const char * p_name = "/usr/bin/convert";
 
-//    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-//    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-//    char* p_args[] = {"ls", "-l", NULL};
-    char * dims_str = "500x70!";
-    char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
-                      dims_str, // TODO replace dimension
-                      IMG_OUT,
-                      NULL};
-    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
-    execv(p_name, p_args);
-
-//    long png_1_size = findSize(PNG_1); // TODO
-//    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
-
-
-    exit(0);
+//    exit(0);
 
     int use_poll = 1;
 
@@ -435,8 +436,60 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
         // select images
         // generate whole image
+        log_msg(LOG_INFO, "Generating Image %s ...\n", IMG_OUT);
+
+        const char * p_name = "/usr/bin/convert";
+
+//    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+//    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+//    char* p_args[] = {"ls", "-l", NULL};
+        char * dims_str = "500x70!";
+        char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
+                          dims_str, // TODO replace dimension
+                          IMG_OUT,
+//                          NULL};
+                        __null};
+        // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
+//        execv(p_name, p_args);
+//        execv(p_name, p_args); // TODO crashing ... :/
+        log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
+
+        int outFileSize = findSize(IMG_OUT);
+        log_msg(LOG_INFO, "Image %s, size: %d\n", IMG_OUT, outFileSize);
+
         // send size of image to client
+        char size_string_msg[32];
+        sprintf(size_string_msg, "S:%d",
+                outFileSize);
+        SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
+//
+//        sprintf(size_string_msg, "S:%d",
+//                outFileSize);
+//        SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
+        char * buffer = 0;
+        long length;
+        FILE * f = fopen (IMG_OUT, "rb");
+
+        if (f) {
+            fseek (f, 0, SEEK_END);
+            length = ftell (f);
+            fseek (f, 0, SEEK_SET);
+//            buffer = new char[100];
+//            size_t size = outFileSize;
+            buffer = (char*) malloc(outFileSize);
+            if (buffer) {
+                fread (buffer, 1, length, f);
+            }
+            fclose (f);
+        }
+
+        if (!buffer) {
+            // TODO error
+        }
+
         // send image to client
+        SSL_write(ssl, buffer, outFileSize);
+
         // wait for response
         // wait <retry_time> seconds to send data again
     } else {

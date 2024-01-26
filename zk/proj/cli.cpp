@@ -225,16 +225,44 @@ int main(int argc, char *argv[]) {
 //    err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
 //    printf("Wrote %d chars:'%s'\n", strlen(message), message);
 
+    int imageSize = -1;
+    int receivedSizeLastTime = 0;
+    while(1) {
 
-  err = SSL_read (ssl, buf, sizeof(buf) - 1);
-  CHK_SSL(err);
-  buf[err] = '\0';
-  printf("Got %d chars:'%s'\n", err, buf);
+        if(receivedSizeLastTime != 0
+            && imageSize != -1
+        ) {
+            log_msg(LOG_INFO, "Start download image...");
+            // file ready to receive
+            char * imgBuf = (char*) malloc(imageSize);
 
-  SSL_shutdown (ssl);  /* send SSL/TLS close_notify */
+            err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
 
-  /* Clean up. */
+            receivedSizeLastTime = 0;
+            log_msg(LOG_INFO, "Download image done");
+            continue;
+        }
+        err = SSL_read(ssl, buf, sizeof(buf) - 1);
+//        CHK_SSL(err);
+        if(err < 1){
+            continue;
+        }
 
+        buf[err] = '\0';
+        printf("Got %d chars:'%s'\n", err, buf);
+
+        receivedSizeLastTime = 0;
+        if(buf[0] == 'S' && buf[1] == ':') {
+            char * buf_i = buf + 2;
+            imageSize = atoi(buf_i);
+            printf("New image size will be: %d\n", imageSize);
+            receivedSizeLastTime = 1;
+        } else {
+            receivedSizeLastTime = 0;
+        }
+        /* Clean up. */
+    }
+    SSL_shutdown(ssl);  /* send SSL/TLS close_notify */
   close (sd);
   SSL_free (ssl);
   SSL_CTX_free (ctx);
