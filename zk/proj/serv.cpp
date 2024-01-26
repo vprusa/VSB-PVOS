@@ -9,47 +9,25 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <signal.h> /* For signal() */
-#include <stdlib.h>
-#include <stdlib.h>
 
-#include <openssl/rsa.h>       /* SSLeay stuff */
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
-#include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
 #include <poll.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/un.h>
 
-
-#include <stdio.h>
 #include <time.h>
-#include <stdio.h>
-#include <unistd.h>
-
-#include <time.h>
-#include <stdlib.h>
-
-#include <sys/wait.h>
 
 
 #define HOME "./"
 #define CERTF  HOME "my.crt"
 #define KEYF  HOME  "my.key"
 
-#define PNG_1 "./jedna.png"
-//#define PNG_TIME "./out.png"
-//#define PNG_TIME "./img/out.jpg"
 #define IMG_OUT "./img/out.jpg"
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
