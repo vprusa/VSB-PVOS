@@ -244,7 +244,76 @@ int main(int argc, char *argv[]) {
 
     int imageSize = -1;
     int receivedSizeLastTime = 0;
+    int request_new_time = 0;
+
     while(1) {
+
+        if(request_new_time) {
+            log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
+
+            SSL_shutdown(ssl);
+
+            sleep(retry_time);
+            log_msg(LOG_INFO, "woke up, requests time again ...", retry_time);
+
+
+
+            sd = socket (AF_INET, SOCK_STREAM, 0);       CHK_ERR(sd, "socket");
+
+            memset (&sa, '\0', sizeof(sa));
+            sa.sin_family      = AF_INET;
+            sa.sin_addr.s_addr = inet_addr ("127.0.0.1");   /* Server IP */
+            sa.sin_port        = htons     (1111);          /* Server Port number */
+
+            err = connect(sd, (struct sockaddr*) &sa,
+                          sizeof(sa));                   CHK_ERR(err, "connect");
+
+            /* ----------------------------------------------- */
+            /* Now we have TCP conncetion. Start SSL negotiation. */
+
+            ssl = SSL_new (ctx);                         CHK_NULL(ssl);
+            SSL_set_fd (ssl, sd);
+            err = SSL_connect (ssl);                     CHK_SSL(err);
+
+            /* Following two steps are optional and not required for
+               data exchange to be successful. */
+
+            /* Get the cipher - opt */
+
+            printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
+
+            /* Get server's certificate (note: beware of dynamic allocation) - opt */
+
+            server_cert = SSL_get_peer_certificate (ssl);       CHK_NULL(server_cert);
+            printf ("Server certificate:\n");
+
+            str = X509_NAME_oneline (X509_get_subject_name (server_cert),0,0);
+            CHK_NULL(str);
+            printf ("\t subject: %s\n", str);
+            OPENSSL_free (str);
+
+            str = X509_NAME_oneline (X509_get_issuer_name  (server_cert),0,0);
+            CHK_NULL(str);
+            printf ("\t issuer: %s\n", str);
+            OPENSSL_free (str);
+
+            /* We could do all sorts of certificate verification stuff here before
+               deallocating the certificate. */
+
+            X509_free (server_cert);
+
+
+
+
+//            char retry_and_dim_message2[32];
+            sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
+            err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
+            printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+            request_new_time = 0;
+
+            receivedSizeLastTime = 0;
+            imageSize = -1;
+        }
         if(receivedSizeLastTime != 0
             && imageSize != -1
         ) {
@@ -264,12 +333,12 @@ int main(int argc, char *argv[]) {
             receivedSizeLastTime = 0;
             log_msg(LOG_INFO, "Download image done");
             // opening image
-            const char * p_name = "/usr/bin/xdg-open";
-            char* p_args[] = {OUT_FILE, NULL};
+//            const char * p_name = "/usr/bin/xdg-open";
+//            char* p_args[] = {OUT_FILE, NULL};
 //            execv(p_name, p_args);
-
-            log_msg(LOG_INFO, "opening file %s done\n", OUT_FILE);
-
+            int status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+            log_msg(LOG_INFO, "opening file %s done, status: %d\n", OUT_FILE, status);
+            request_new_time = 1;
             continue;
         }
         err = SSL_read(ssl, buf, sizeof(buf) - 1);

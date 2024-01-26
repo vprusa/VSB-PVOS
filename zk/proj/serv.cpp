@@ -321,17 +321,6 @@ int main(int argc, char *argv[]) {
 
                 if (l_read_poll[1].revents & POLLIN) {
                     // new client?
-                    /*
-                    sockaddr_in l_rsa;
-                    int l_rsa_size = sizeof(l_rsa);
-                    // new connection
-                    l_sock_client = accept(l_sock_listen, (sockaddr *) &l_rsa, (socklen_t *) &l_rsa_size);
-                    if (l_sock_client == -1) {
-                        log_msg(LOG_ERROR, "Unable to accept new client.");
-//                        close( l_sock_listen );
-//                        exit( 1 );
-                    }
-                    */
 
                     client_len = sizeof(socketAddrClient);
                     client_fd = accept(listen_sd, (struct sockaddr *) &socketAddrClient, &client_len);
@@ -487,20 +476,10 @@ void handle_client(int sd, SSL_CTX* ctx) {
         char * ts_s1 = imgData[t_s1];
         char * ts_s2 = imgData[t_s2];
 
-        // TODO as some struct organized
-    /*    for(int i = 0; i<10; i++) {
-            if(i == )
-        }
-*/
-//        const char* message = "Msg!";
-//        SSL_write(ssl, message, strlen(message));
         char time_string_msg[32];
         sprintf(time_string_msg, "%d%d:%d%d:%d%d",
                  t_h1, t_h2, t_m1, t_m2, t_s1, t_s2);
         SSL_write(ssl, time_string_msg, strlen(time_string_msg));
-
-//        int png_1_size = findSize(PNG_1);
-//        log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
 
         // select images
         // generate whole image
@@ -508,7 +487,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
 
 //    const char * p_name = "/usr/bin/convert";
-
 //    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
 //    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
 //    char* p_args[] = {"ls", "-l", NULL};
@@ -536,20 +514,8 @@ void handle_client(int sd, SSL_CTX* ctx) {
                           NULL};
         execv(p_name, p_args); // TODO crashing ... :/
         */
-/*        char * cmdFormat = "convert "
-                           "./img/%s " // h1
-                           "./img/%s " // h2
-                           "./img/%s " // m1
-                           "./img/%s " // m2
-                           "./img/%s " // s1
-                           "./img/%s " // s2
-                     "-background grey -alpha remove +append -resize "
-//                           "%dx%d!" // width x height "500x70!"
-                           "%dx%d" // width x height "500x70!"
-                                 " %s"; // "./img/out2.jpg";*/
         // send size of image to client
         char cmd[2048];
-//        sprintf(cmd, cmdFormat,
         sprintf(cmd,
                 "convert "
                 "%s " // h1
@@ -571,13 +537,16 @@ void handle_client(int sd, SSL_CTX* ctx) {
         log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
 
         int outFileSize = findSize(IMG_OUT);
-        log_msg(LOG_INFO, "Image %s, size: %d\n", IMG_OUT, outFileSize);
+        log_msg(LOG_INFO, "Image %s with size: %d\n", IMG_OUT, outFileSize);
 
         // send size of image to client
         char size_string_msg[32];
         sprintf(size_string_msg, "S:%d",
                 outFileSize);
         SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
+
+        log_msg(LOG_INFO, "Image size, sent: %d\n", IMG_OUT, outFileSize);
+
         char * buffer = 0;
         FILE * f = fopen (IMG_OUT, "rb");
 
@@ -594,7 +563,9 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
 
         // send image to client
+        log_msg(LOG_INFO, "Writing image to client...\n");
         SSL_write(ssl, buffer, outFileSize);
+        log_msg(LOG_INFO, "Image sent\n");
 
         // wait for response
         // wait <retry_time> seconds to send data again
