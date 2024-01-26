@@ -199,7 +199,6 @@ int main(int argc, char *argv[]) {
         err = listen (listen_sd, 5);
         CHK_ERR(err, "listen");
 
-
         // go!
         while ( 1 ) {
 
