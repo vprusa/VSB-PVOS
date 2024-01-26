@@ -8,14 +8,14 @@ Seznam deskriptorů bude potřeba rozšířit o strukturu SSL.
 
 cli 5 500x70
 
-client vytvori obr. s casem
+~~client vytvori obr. s casem~~
 
 
 server nic nepottrebuje
 
 ./cli 5 500x70
 
- nutne znovuotevirat obrazek
+nutne znovuotevirat obrazek
 
 
 time... -> parse -< 

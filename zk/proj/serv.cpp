@@ -98,30 +98,7 @@ void help() {
 
 int main(int argc, char *argv[]) {
 
-    int use_thread = 0;
-    int use_fork = 1;
-    int use_poll = 0;
-    if (argc < 2) {
-        help();
-        return 2;
-    } else {
-        switch (argv[1][0]) {
-            case 't':
-                use_thread = 1;
-                use_fork = 0;
-                use_poll = 0;
-                printf("Using threads instead forks or poll\n");
-                break;
-            case 'p':
-                use_thread = 0;
-                use_fork = 0;
-                use_poll = 1;
-                printf("Using poll instead forks or threads\n");
-                break;
-            default:
-                help();
-        }
-    }
+    int use_poll = 1;
 
     // First lets setup listening for incoming connections
     int listen_sd;
@@ -181,26 +158,26 @@ int main(int argc, char *argv[]) {
         listen_sd = socket(AF_INET, SOCK_STREAM, 0);
         CHK_ERR(listen_sd, "socket");
 
-        memset (&sa_serv, '\0', sizeof(sa_serv));
-        sa_serv.sin_family      = AF_INET;
+        memset(&sa_serv, '\0', sizeof(sa_serv));
+        sa_serv.sin_family = AF_INET;
         sa_serv.sin_addr.s_addr = INADDR_ANY;
-        sa_serv.sin_port        = htons (1111);  /* Server Port number */
+        sa_serv.sin_port = htons(1111);  /* Server Port number */
 
         // Enable the port number reusing
         int l_opt = 1;
-        if ( setsockopt( listen_sd, SOL_SOCKET, SO_REUSEADDR,
-                         &l_opt, sizeof( l_opt ) ) < 0 ) {
-            log_msg( LOG_ERROR, "Unable to set socket option!" );
+        if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR,
+                       &l_opt, sizeof(l_opt)) < 0) {
+            log_msg(LOG_ERROR, "Unable to set socket option!");
         }
 
         // err will be used as return variable for most of the functions, even `read` that may return size of read data
-        int err = bind(listen_sd, (struct sockaddr*) &sa_serv, sizeof (sa_serv));
+        int err = bind(listen_sd, (struct sockaddr *) &sa_serv, sizeof(sa_serv));
         CHK_ERR(err, "bind");
-        err = listen (listen_sd, 5);
+        err = listen(listen_sd, 5);
         CHK_ERR(err, "listen");
 
         // go!
-        while ( 1 ) {
+        while (1) {
 
             // list of fd sources
             pollfd l_read_poll[2];
@@ -251,7 +228,7 @@ int main(int argc, char *argv[]) {
                     */
 
                     client_len = sizeof(socketAddrClient);
-                    client_fd = accept(listen_sd, (struct sockaddr*)&socketAddrClient, &client_len);
+                    client_fd = accept(listen_sd, (struct sockaddr *) &socketAddrClient, &client_len);
                     l_sock_client = client_fd;
                     CHK_ERR(client_fd, "accept");
 
@@ -273,64 +250,6 @@ int main(int argc, char *argv[]) {
             } // while wait for client
 
             // poll done
-        }
-    } else {
-        // Start listening
-        listen_sd = socket (AF_INET, SOCK_STREAM, 0);
-        CHK_ERR(listen_sd, "socket");
-
-        memset (&sa_serv, '\0', sizeof(sa_serv));
-        sa_serv.sin_family      = AF_INET;
-        sa_serv.sin_addr.s_addr = INADDR_ANY;
-        sa_serv.sin_port        = htons (1111);  /* Server Port number */
-
-        // err will be used as return variable for most of the functions, even `read` that may return size of read data
-        int err = bind(listen_sd, (struct sockaddr*) &sa_serv, sizeof (sa_serv));
-        CHK_ERR(err, "bind");
-        err = listen (listen_sd, 5);
-        CHK_ERR(err, "listen");
-
-        while (1) {
-            // wait for client to connect
-            client_len = sizeof(socketAddrClient);
-            client_fd = accept(listen_sd, (struct sockaddr*)&socketAddrClient, &client_len);
-            CHK_ERR(client_fd, "accept");
-
-            // start parallel...
-            if(use_fork) {
-                printf("Starting new fork...\n");
-                // ... fork
-                int pid = fork();
-                if (pid == 0) { // Child process
-                    close(listen_sd);
-                    handle_client(client_fd, ctx);
-                    exit(0);
-                } else if (pid > 0) { // Parent process
-                    close(client_fd);
-                } else {
-                    perror("Fork failed");
-                    exit(1);
-                }
-            } else if (use_thread) {
-                // ... thread
-                printf("Starting new thread...\n");
-                pthread_t tid;
-                thread_args* args = (thread_args*)malloc(sizeof(thread_args));
-                if (args == NULL) {
-                    perror("Failed to allocate memory for thread arguments");
-                    exit(1);
-                }
-                args->sd = client_fd;
-                args->ctx = ctx;
-
-                int ret = pthread_create(&tid, NULL, handle_client_thread, (void*)args);
-                if (ret != 0) {
-                    perror("pthread_create failed");
-                    exit(1);
-                }
-
-                pthread_detach(tid);  // Detach the thread so it runs independently
-            }
         }
     }
 
@@ -374,18 +293,84 @@ void handle_client(int sd, SSL_CTX* ctx) {
         printf ("Client does not have certificate.\n");
     }
 
+/*
     char buf[4096]; // may not be sufficient for long messages
     int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
     buf[read] = '\0';
     printf ("Got %d chars:'%s'\n", read, buf);
+
     // Prepare a message with the size of the received message
     char message[32];
     sprintf(message, "%d[b]", read);
 
-    /*
+    */
+/*
      * Pro kontrolu by bylo vhodné, aby server klientovi zpět potvrdil, kolik bajtů přijat.
-     */
+     *//*
+
     err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
+*/
+    int retry_time = 1;
+    int dim_width = 0;
+    int dim_height = 0;
+
+    char buf[4096]; // may not be sufficient for long messages
+    int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
+    buf[read] = '\0';
+    printf ("Got %d chars:'%s'\n", read, buf);
+    // contains img info?
+    if(read>2) {
+        if(buf[0] == 'R' && buf[1] == ':') {
+            char * buf_i = buf + 2;
+            int buf_idx = 1;
+            while(buf[buf_idx] != 'W') {
+                buf_idx++;
+            }
+            buf_i[buf_idx-1] = '\0';
+            retry_time = atoi(buf_i);
+            log_msg(LOG_INFO,"Retry: %d", retry_time);
+
+            char * buf_i_w = buf + buf_idx + 2;
+//            log_msg(LOG_INFO,"buf_i_w: %s", (buf_i_w));
+            buf_idx = 0;
+            while(buf_i_w[buf_idx] != 'H') {
+                buf_idx++;
+            }
+            buf_i_w[buf_idx] = '\0';
+            dim_width = atoi(buf_i_w);
+            log_msg(LOG_INFO,"Width: %d", dim_width);
+
+            char * buf_i_h = buf_i_w + buf_idx + 2;
+            buf_idx = 0;
+            while(buf_i_h[buf_idx] != '\0') {
+                buf_idx++;
+            }
+//            buf_i_h[buf_idx] = '\0';
+            dim_height = atoi(buf_i_h);
+            log_msg(LOG_INFO,"Height: %d", dim_height);
+
+
+            /*char * buf2 = buf_i += buf_idx;
+
+//            buf_idx = 1;
+            while(buf[buf_idx] != 'H') {
+                buf_idx++;
+            }
+            buf_i[buf_idx] = '\0';
+            dim_width = atoi(buf_i);
+            log_msg(LOG_INFO,"Width: %d", dim_width);
+
+            buf_i += buf_idx;
+//            buf_idx = 1;
+            while(buf[buf_idx] != '\0') {
+                buf_idx++;
+            }
+            buf_i[buf_idx] = '\0';
+            dim_height = atoi(buf_i);
+            log_msg(LOG_INFO,"Height: %d", dim_height);*/
+        }
+    }
+
 
     close(sd);
     SSL_free(ssl);

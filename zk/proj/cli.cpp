@@ -15,6 +15,34 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <signal.h> /* For signal() */
+
+#include <openssl/rsa.h>       /* SSLeay stuff */
+#include <openssl/crypto.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#include <poll.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+
+
+
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
@@ -102,32 +130,11 @@ int main(int argc, char *argv[]) {
     }
 
 
-    log_msg(LOG_INFO, "Parsed args, \nretry_time: %d, \ndim_width: %d, \ndim_height: %d",
+    log_msg(LOG_INFO, "Parsed args, \nretry_time: %d, "
+                      "\ndim_width: %d, \ndim_height: %d",
             retry_time, dim_width, dim_height);
 
-    exit(0);
-    /*
-    if (argc < 2) {
-        help();
-        return 2;
-    } else {
-        switch (argv[1][0]) {
-            case 't':
-                use_thread = 1;
-                use_fork = 0;
-                use_poll = 0;
-                printf("Using threads instead forks or poll\n");
-                break;
-            case 'p':
-                use_thread = 0;
-                use_fork = 0;
-                use_poll = 1;
-                printf("Using poll instead forks or threads\n");
-                break;
-            default:
-                help();
-        }
-    }*/
+//    exit(0);
 
   int err;
   int sd;
@@ -198,9 +205,26 @@ int main(int argc, char *argv[]) {
 
   // Prepare a message with the size of the received message
 
-  const char* message = "Hello World!";
-  err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
-    printf("Wrote %d chars:'%s'\n", strlen(message), message);
+//    const char* message = "Hello World!";
+//  err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
+//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
+
+//    const char* message = "Hello World!";
+//    const char* message = "retry: ";
+    char retry_and_dim_message[32];
+    sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
+
+//    char retry_time_str[10];
+    // zk, send data about retry and image to server
+    err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
+    printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+//    err = SSL_write (ssl, retry_message, strlen(message));  CHK_SSL(err);
+//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
+
+    // zk, send data about retry and image to server
+//    err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
+//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
+
 
   err = SSL_read (ssl, buf, sizeof(buf) - 1);
   CHK_SSL(err);
