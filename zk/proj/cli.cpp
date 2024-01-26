@@ -40,6 +40,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 
 
@@ -103,24 +106,8 @@ void help() {
 }
 
 int main(int argc, char *argv[]) {
+//    exit(0);
 
-    // opening image
-//    const char * p_name = "export DISPLAY=:1 ; /usr/bin/xdg-open ./img/recOut.jpg & disown";
-//    const char * p_name = "/usr/bin/xdg-open ./img/recOut.jpg";
-//    const char * p_name = "/usr/bin/xdg-open";
-//    char* p_args[] = {OUT_FILE, NULL};
-/*
-    const char * p_name = "echo asdasd";
-//    const char * p_name = "echo ";
-    char* p_args[] = {OUT_FILE, NULL};
-
-    execv(p_name, p_args);
-    log_msg(LOG_INFO,"opening file %s done\n", OUT_FILE);
-    exit(0);
-*/
-
-    int use_thread = 0;
-    int use_fork = 1;
     int retry_time = 1;
     int dim_width = 0;
     int dim_height = 0;
@@ -142,16 +129,11 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-//        dim_width = atoi(argv[1]);
-//        dim_height = atoi(argv[1]);
     }
-
 
     log_msg(LOG_INFO, "Parsed args, \nretry_time: %d, "
                       "\ndim_width: %d, \ndim_height: %d",
             retry_time, dim_width, dim_height);
-
-//    exit(0);
 
   int err;
   int sd;
@@ -222,25 +204,12 @@ int main(int argc, char *argv[]) {
 
   // Prepare a message with the size of the received message
 
-//    const char* message = "Hello World!";
-//  err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
-//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
-
-//    const char* message = "Hello World!";
-//    const char* message = "retry: ";
     char retry_and_dim_message[32];
     sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
 
-//    char retry_time_str[10];
     // zk, send data about retry and image to server
     err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
     printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
-//    err = SSL_write (ssl, retry_message, strlen(message));  CHK_SSL(err);
-//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
-
-    // zk, send data about retry and image to server
-//    err = SSL_write (ssl, message, strlen(message));  CHK_SSL(err);
-//    printf("Wrote %d chars:'%s'\n", strlen(message), message);
 
     int imageSize = -1;
     int receivedSizeLastTime = 0;
@@ -329,20 +298,30 @@ int main(int argc, char *argv[]) {
                 fclose (f);
             }
 
-
             receivedSizeLastTime = 0;
             log_msg(LOG_INFO, "Download image done");
             // opening image
 //            const char * p_name = "/usr/bin/xdg-open";
 //            char* p_args[] = {OUT_FILE, NULL};
 //            execv(p_name, p_args);
-            int status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+
+            int status = system("ps aux | grep ./img/recOut.jpg  | grep -v 'grep' > tmp.ps.log");
+
+            const char *filename = "tmp.ps.log";
+            struct stat st;
+
+            if (stat(filename, &st) != 0) {
+                return EXIT_FAILURE;
+            }
+            log_msg(LOG_INFO, "file size: %zd\n", st.st_size);
+            if(st.st_size == 0) {
+                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+            }
             log_msg(LOG_INFO, "opening file %s done, status: %d\n", OUT_FILE, status);
             request_new_time = 1;
             continue;
         }
         err = SSL_read(ssl, buf, sizeof(buf) - 1);
-//        CHK_SSL(err);
         if(err < 1) {
             continue;
         }

@@ -17,7 +17,6 @@ server nic nepottrebuje
 
 nutne znovuotevirat obrazek
 
-
 time... -> parse -< 
 
 klient ceka na velikost souboru

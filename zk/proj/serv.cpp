@@ -149,59 +149,6 @@ long findSize(char * file_name) {
 
 int main(int argc, char *argv[]) {
 
-
-    log_msg(LOG_INFO, "Generating Image %s...\n", IMG_OUT);
-/*
-    const char * p_name = "/usr/bin/convert";
-    char * dims_str = "500x70!";
-    char* p_args[] = {"./img/jedna.png","./img/jedna.png",
-                      "./img/jedna.png","-background",
-                      "grey","-alpha","remove","+append",
-                      "-resize",
-                      "500x70!", // TODO replace dimension
-                      "./img/out.jpg",
-                      NULL};*/
-    /*
-//                        __null};
-    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
-//        execv(p_name, p_args);
-//        execv(p_name, p_args); // TODO crashing ... :/
-    execv(p_name, p_args); // TODO crashing ... :/*/
-
-//    int status = system("convert ./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! ./img/out2.jpg");
-
-//    char* envp[1];
-//    envp[0] = NULL;
-//    execve(p_name, p_args, envp);
-
-//
-//    log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
-//    exit(0);
-
-//    long png_1_size = findSize(PNG_1); // TODO
-//    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
-
-//    // generate whole image
-//
-////    execv(""); // child: call execv with the path and the args
-////    const char * p_name = "convert";
-//    const char * p_name = "/usr/bin/convert";
-//
-////    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-////    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-////    char* p_args[] = {"ls", "-l", NULL};
-//    char * dims_str = "500x70!";
-//    char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
-//                      dims_str, // TODO replace dimension
-//                      IMG_OUT,
-//                      NULL};
-//    // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
-//    execv(p_name, p_args);
-//
-////    long png_1_size = findSize(PNG_1); // TODO
-////    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
-
-
 //    exit(0);
 
     int use_poll = 1;
@@ -410,7 +357,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
             log_msg(LOG_INFO,"Retry: %d", retry_time);
 
             char * buf_i_w = buf + buf_idx + 2;
-//            log_msg(LOG_INFO,"buf_i_w: %s", (buf_i_w));
             buf_idx = 0;
             while(buf_i_w[buf_idx] != 'H') {
                 buf_idx++;
