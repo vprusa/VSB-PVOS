@@ -56,6 +56,20 @@
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
+// TODO
+#define IMG_PUNC "./img/sem.png"
+
+#define IMG_0 "./img/nula.png"
+#define IMG_1 "./img/jedna.png"
+#define IMG_2 "./img/dva.png"
+#define IMG_3 "./img/tri.png"
+#define IMG_4 "./img/ctyri.png"
+#define IMG_5 "./img/pet.png"
+#define IMG_6 "./img/sest.png"
+#define IMG_7 "./img/sedm.png"
+#define IMG_8 "./img/osm.png"
+#define IMG_9 "./img/devet.png"
+
 
 #define LOG_ERROR               0       // errors
 #define LOG_INFO                1       // information and notifications
@@ -137,7 +151,7 @@ int main(int argc, char *argv[]) {
 
 
     log_msg(LOG_INFO, "Generating Image %s...\n", IMG_OUT);
-
+/*
     const char * p_name = "/usr/bin/convert";
     char * dims_str = "500x70!";
     char* p_args[] = {"./img/jedna.png","./img/jedna.png",
@@ -146,7 +160,7 @@ int main(int argc, char *argv[]) {
                       "-resize",
                       "500x70!", // TODO replace dimension
                       "./img/out.jpg",
-                      NULL};
+                      NULL};*/
     /*
 //                        __null};
     // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
@@ -154,17 +168,15 @@ int main(int argc, char *argv[]) {
 //        execv(p_name, p_args); // TODO crashing ... :/
     execv(p_name, p_args); // TODO crashing ... :/*/
 
-    int status = system("convert ./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! ./img/out2.jpg");
+//    int status = system("convert ./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! ./img/out2.jpg");
 
 //    char* envp[1];
 //    envp[0] = NULL;
 //    execve(p_name, p_args, envp);
 
-
-    log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
-
-
-    exit(0);
+//
+//    log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
+//    exit(0);
 
 //    long png_1_size = findSize(PNG_1); // TODO
 //    log_msg(LOG_INFO, "PNG_1 size: %d", png_1_size);
@@ -456,6 +468,30 @@ void handle_client(int sd, SSL_CTX* ctx) {
         int t_s1 = t_sec / 10;
         int t_s2 = t_sec % 10;
 
+        char * imgData[10] = {IMG_0,
+                            IMG_1,
+                            IMG_2,
+                            IMG_3,
+                            IMG_4,
+                            IMG_5,
+                            IMG_6,
+                            IMG_7,
+                            IMG_8,
+                            IMG_9};
+
+        char * ts_sep = IMG_PUNC;
+        char * ts_h1 = imgData[t_h1];
+        char * ts_h2 = imgData[t_h2];
+        char * ts_m1 = imgData[t_m1];
+        char * ts_m2 = imgData[t_m2];
+        char * ts_s1 = imgData[t_s1];
+        char * ts_s2 = imgData[t_s2];
+
+        // TODO as some struct organized
+    /*    for(int i = 0; i<10; i++) {
+            if(i == )
+        }
+*/
 //        const char* message = "Msg!";
 //        SSL_write(ssl, message, strlen(message));
         char time_string_msg[32];
@@ -500,6 +536,37 @@ void handle_client(int sd, SSL_CTX* ctx) {
                           NULL};
         execv(p_name, p_args); // TODO crashing ... :/
         */
+/*        char * cmdFormat = "convert "
+                           "./img/%s " // h1
+                           "./img/%s " // h2
+                           "./img/%s " // m1
+                           "./img/%s " // m2
+                           "./img/%s " // s1
+                           "./img/%s " // s2
+                     "-background grey -alpha remove +append -resize "
+//                           "%dx%d!" // width x height "500x70!"
+                           "%dx%d" // width x height "500x70!"
+                                 " %s"; // "./img/out2.jpg";*/
+        // send size of image to client
+        char cmd[2048];
+//        sprintf(cmd, cmdFormat,
+        sprintf(cmd,
+                "convert "
+                "%s " // h1
+                "%s " // h2
+                "%s " // :
+                "%s " // m1
+                "%s " // m2
+                "%s " // :
+                "%s " // s1
+                "%s " // s2
+                "-background grey -alpha remove +append -resize %dx%d! %s",
+                ts_h1, ts_h2, ts_sep, ts_m1, ts_m2, ts_sep, ts_s1, ts_s2,
+                dim_width, dim_height,
+                IMG_OUT);
+        log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
+        int status = system(cmd);
 
         log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
 
@@ -519,7 +586,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             if (buffer) {
                 fread (buffer, 1, outFileSize, f);
             }
-            fclose (f);
+            fclose(f);
         }
 
         if (!buffer) {

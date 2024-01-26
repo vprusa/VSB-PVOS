@@ -266,10 +266,9 @@ int main(int argc, char *argv[]) {
             // opening image
             const char * p_name = "/usr/bin/xdg-open";
             char* p_args[] = {OUT_FILE, NULL};
-            execv(p_name, p_args);
+//            execv(p_name, p_args);
 
             log_msg(LOG_INFO, "opening file %s done\n", OUT_FILE);
-
 
             continue;
         }
