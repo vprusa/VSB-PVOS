@@ -192,38 +192,6 @@ int main(int argc, char *argv[]) {
     char okBuff[OK_size];
 
     while(1) {
-
-
-        if(request_new_time) {
-         /*   log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
-
-//            SSL_shutdown(ssl);
-            sleep(retry_time);
-            log_msg(LOG_INFO, "woke up, requests time again ...", retry_time);
-
-
-            sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
-            err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
-            printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
-
-            int OK_size = 10;
-            char okBuff[OK_size];
-            err = SSL_read(ssl, okBuff, sizeof(buf) - 1);
-            if(err < 1 || ( okBuff[0] != 'O' && okBuff[1] != 'K')) {
-                continue;
-            }
-            request_new_time = 0;
-
-            receivedSizeLastTime = 0;
-            imageSize = -1;*/
-        }
-       /* if(receivedSizeLastTime != 0
-           && imageSize != -1
-                ) {
-
-            continue;
-        }*/
-
         if(sent_dim == 0) {
             sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
             // zk, send data about retry and image to server
@@ -231,9 +199,6 @@ int main(int argc, char *argv[]) {
             printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
             sent_dim = 1;
         }
-
-//        err = SSL_read(ssl, buf, sizeof(buf) - 1);
-
 
         int read = -1;
         int l_poll = poll(l_read_poll, 1, 5000);
@@ -302,7 +267,7 @@ int main(int argc, char *argv[]) {
             if(pid == 0) {
                 // child
                 log_msg(LOG_INFO, "Opening file under child...");
-                int status = system("display ./img/recOut.jpg & disown");
+                int status = system("display ./img/recOut.jpg");
                 exit(0);
             } else {
                 log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
