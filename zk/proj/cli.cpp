@@ -20,6 +20,8 @@
 #include <openssl/err.h>
 
 #include <sys/stat.h>
+#include <csignal>
+#include <sys/poll.h>
 
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
@@ -117,9 +119,9 @@ int main(int argc, char *argv[]) {
   SSLeay_add_ssl_algorithms();
   meth = SSLv23_client_method();
   SSL_load_error_strings();
-  ctx = SSL_CTX_new (meth);                        CHK_NULL(ctx);
-
-  CHK_SSL(err);
+  ctx = SSL_CTX_new (meth);
+  CHK_NULL(ctx);
+//  CHK_SSL(err);
 
   /* ----------------------------------------------- */
   /* Create a socket and connect to server using normal socket calls. */
@@ -173,81 +175,200 @@ int main(int argc, char *argv[]) {
 
   // Prepare a message with the size of the received message
 
-    char retry_and_dim_message[32];
-    sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
-
-    // zk, send data about retry and image to server
-    err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
-    printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
-
     int imageSize = -1;
+    int sent_dim = 0;
+    int sent_ok = 0;
     int receivedSizeLastTime = 0;
     int request_new_time = 0;
 
+
+    pollfd l_read_poll[1];
+    l_read_poll[0].fd = sd;
+    l_read_poll[0].events = POLLIN;
+
+    char retry_and_dim_message[32];
+    pid_t pid = -1;
+    int OK_size = 10;
+    char okBuff[OK_size];
+
     while(1) {
 
+
         if(request_new_time) {
-            log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
+         /*   log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
 
-            SSL_shutdown(ssl);
-
+//            SSL_shutdown(ssl);
             sleep(retry_time);
             log_msg(LOG_INFO, "woke up, requests time again ...", retry_time);
 
 
-
-            sd = socket (AF_INET, SOCK_STREAM, 0);       CHK_ERR(sd, "socket");
-
-            memset (&sa, '\0', sizeof(sa));
-            sa.sin_family      = AF_INET;
-            sa.sin_addr.s_addr = inet_addr ("127.0.0.1");   /* Server IP */
-            sa.sin_port        = htons     (1111);          /* Server Port number */
-
-            err = connect(sd, (struct sockaddr*) &sa,
-                          sizeof(sa));                   CHK_ERR(err, "connect");
-
-            /* ----------------------------------------------- */
-            /* Now we have TCP conncetion. Start SSL negotiation. */
-
-            ssl = SSL_new (ctx);                         CHK_NULL(ssl);
-            SSL_set_fd (ssl, sd);
-            err = SSL_connect (ssl);                     CHK_SSL(err);
-
-            /* Following two steps are optional and not required for
-               data exchange to be successful. */
-
-            /* Get the cipher - opt */
-
-            printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
-
-            /* Get server's certificate (note: beware of dynamic allocation) - opt */
-
-            server_cert = SSL_get_peer_certificate (ssl);       CHK_NULL(server_cert);
-            printf ("Server certificate:\n");
-
-            str = X509_NAME_oneline (X509_get_subject_name (server_cert),0,0);
-            CHK_NULL(str);
-            printf ("\t subject: %s\n", str);
-            OPENSSL_free (str);
-
-            str = X509_NAME_oneline (X509_get_issuer_name  (server_cert),0,0);
-            CHK_NULL(str);
-            printf ("\t issuer: %s\n", str);
-            OPENSSL_free (str);
-
-            /* We could do all sorts of certificate verification stuff here before
-               deallocating the certificate. */
-
-            X509_free (server_cert);
-
-
-
-
-//            char retry_and_dim_message2[32];
             sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
             err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
             printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+
+            int OK_size = 10;
+            char okBuff[OK_size];
+            err = SSL_read(ssl, okBuff, sizeof(buf) - 1);
+            if(err < 1 || ( okBuff[0] != 'O' && okBuff[1] != 'K')) {
+                continue;
+            }
             request_new_time = 0;
+
+            receivedSizeLastTime = 0;
+            imageSize = -1;*/
+        }
+       /* if(receivedSizeLastTime != 0
+           && imageSize != -1
+                ) {
+
+            continue;
+        }*/
+
+        if(sent_dim == 0) {
+            sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
+            // zk, send data about retry and image to server
+            err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
+            printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+            sent_dim = 1;
+        }
+
+//        err = SSL_read(ssl, buf, sizeof(buf) - 1);
+
+
+        int read = -1;
+        int l_poll = poll(l_read_poll, 1, 5000);
+        if (l_read_poll[0].revents & POLLIN) {
+            read = SSL_read(ssl, buf, sizeof(buf) - 1);
+            CHK_SSL(err);
+            if(read > 0) {
+                buf[read] = '\0';
+            }
+        }
+        if(err < 1) {
+            continue;
+        }
+        if(read > 1) {
+            if(buf[0] == 'E' && buf[1] == ':') {
+                sent_ok = 0;
+                sent_dim = 0;
+                printf("Got %d chars:'%s'\n", err, buf);
+                continue;
+            }
+        }
+
+        buf[err] = '\0';
+        printf("Got %d chars:'%s'\n", err, buf);
+
+        receivedSizeLastTime = 0;
+        if(buf[0] == 'S' && buf[1] == ':') {
+            char *buf_i = buf + 2;
+            imageSize = atoi(buf_i);
+            printf("New image size will be: %d\n", imageSize);
+//            receivedSizeLastTime = 1;
+            SSL_write(ssl, "OK", 2);
+            sent_ok = 1;
+
+//        }
+//        if(sent_ok == 1) {
+            log_msg(LOG_INFO, "Start download image...");
+            char * imgBuf = (char*) malloc(imageSize);
+
+            err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
+            if(err > 1 && imgBuf[0] == 'E' && imgBuf[1] == ':' ) {
+                sent_ok = 0;
+                sent_dim = 0;
+                continue;
+            }
+            FILE * f = fopen (OUT_FILE, "wb");
+
+            if (f) {
+                fwrite(imgBuf, 1, imageSize, f);
+                fclose (f);
+            }
+
+            receivedSizeLastTime = 0;
+            log_msg(LOG_INFO, "Download image done");
+            // opening image
+//            const char * p_name = "/usr/bin/xdg-open";
+//            char* p_args[] = {OUT_FILE, NULL};
+//            execv(p_name, p_args);
+
+            log_msg(LOG_INFO, "Killing child if necessary, pid: $d...", pid);
+            if(pid != 0 && pid != -1) {
+                kill(pid, SIGKILL);
+            }
+
+            pid = fork();
+            if(pid == 0) {
+                // child
+                log_msg(LOG_INFO, "Opening file under child...");
+                int status = system("display ./img/recOut.jpg & disown");
+                exit(0);
+            } else {
+                log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
+                // parent
+            }
+
+       /*     int status = system("ps aux | grep 'display ./img/recOut.jpg'  | grep -v 'grep' > tmp.ps.log");
+            const char *filename = "tmp.ps.log";
+            struct stat st;
+
+            if (stat(filename, &st) != 0) {
+                return EXIT_FAILURE;
+            }
+            log_msg(LOG_INFO, "file size: %zd\n", st.st_size);
+            if(st.st_size == 0) {
+//                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+
+                status = system("display ./img/recOut.jpg & disown");
+//                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+            } else {
+                status = system("display ./img/recOut.jpg & disown");
+                log_msg(LOG_INFO, "display already running");
+            }*/
+            log_msg(LOG_INFO, "opening file %s done, status: %d\n", OUT_FILE);
+            request_new_time = 1;
+
+            log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
+
+
+/*
+
+            sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
+            err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
+            printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+*/
+
+        } else {
+            receivedSizeLastTime = 0;
+        }
+//            SSL_shutdown(ssl);
+        sleep(retry_time);
+        sent_dim = 0;
+        log_msg(LOG_INFO, "woke up, requests time again ...", retry_time);
+
+
+        /*
+        if(request_new_time) {
+            log_msg(LOG_INFO, "Sleeping %d seconds ...", retry_time);
+
+//            SSL_shutdown(ssl);
+            sleep(retry_time);
+            log_msg(LOG_INFO, "woke up, requests time again ...", retry_time);
+
+
+            sprintf(retry_and_dim_message, "R:%dW:%dH:%d", retry_time, dim_width, dim_height);
+            err = SSL_write (ssl, retry_and_dim_message, strlen(retry_and_dim_message));  CHK_SSL(err);
+            printf("Wrote %d chars:'%s'\n", strlen(retry_and_dim_message), retry_and_dim_message);
+
+            int OK_size = 10;
+            char okBuff[OK_size];
+            err = SSL_read(ssl, okBuff, sizeof(buf) - 1);
+            if(err < 1 || ( okBuff[0] != 'O' && okBuff[1] != 'K')) {
+                continue;
+            }
+            request_new_time = 0;
+
 
             receivedSizeLastTime = 0;
             imageSize = -1;
@@ -274,8 +395,7 @@ int main(int argc, char *argv[]) {
 //            char* p_args[] = {OUT_FILE, NULL};
 //            execv(p_name, p_args);
 
-            int status = system("ps aux | grep ./img/recOut.jpg  | grep -v 'grep' > tmp.ps.log");
-
+            int status = system("ps aux | grep 'display ./img/recOut.jpg'  | grep -v 'grep' > tmp.ps.log");
             const char *filename = "tmp.ps.log";
             struct stat st;
 
@@ -284,8 +404,27 @@ int main(int argc, char *argv[]) {
             }
             log_msg(LOG_INFO, "file size: %zd\n", st.st_size);
             if(st.st_size == 0) {
+//                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+                status = system("display ./img/recOut.jpg & disown");
+//                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
+            } else {
+                status = system("display ./img/recOut.jpg & disown");
+                log_msg(LOG_INFO, "display already running");
+            }
+*//*
+            int status = system("ps aux | grep ./img/recOut.jpg  | grep -v 'grep' > tmp.ps.log");
+            const char *filename = "tmp.ps.log";
+            struct stat st;
+
+            if (stat(filename, &st) != 0) {
+                return EXIT_FAILURE;
+            }
+            log_msg(LOG_INFO, "file size: %zd\n", st.st_size);
+            if(st.st_size == 0) {
+//                status = system("/usr/bin/xdg-open ./img/recOut.jpg");
                 status = system("/usr/bin/xdg-open ./img/recOut.jpg");
             }
+*//*
             log_msg(LOG_INFO, "opening file %s done, status: %d\n", OUT_FILE, status);
             request_new_time = 1;
             continue;
@@ -306,7 +445,7 @@ int main(int argc, char *argv[]) {
             receivedSizeLastTime = 1;
         } else {
             receivedSizeLastTime = 0;
-        }
+        }*/
         /* Clean up. */
     }
     SSL_shutdown(ssl);  /* send SSL/TLS close_notify */

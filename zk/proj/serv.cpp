@@ -20,6 +20,20 @@
 
 #include <poll.h>
 #include <sys/un.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 #include <time.h>
 
@@ -97,6 +111,8 @@ struct pollfd_ssl
     short int revents;		/* Types of events that actually occurred.  */
     // TODO ssl
 };
+
+//sem_t mySemaphore;
 
 void handle_client(int sd, SSL_CTX* ctx);
 void* handle_client_thread(void* arguments);
@@ -261,10 +277,22 @@ int main(int argc, char *argv[]) {
                     getpeername(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
                     log_msg(LOG_INFO, "Client IP: '%s'  port: %d",
                             inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
-
                     handle_client(client_fd, ctx);
 
-                    break;
+/*
+                    pid_t pid = fork();
+                    if(pid == 0) {
+                        // child
+                        close(listen_sd);
+                        close(client_fd);
+                        exit(0);
+                    } else {
+                        // parent
+                        close(client_fd);
+                    }
+*/
+
+//                    break;
                 }
 
             } // while wait for client
@@ -317,186 +345,279 @@ void handle_client(int sd, SSL_CTX* ctx) {
     int retry_time = -1;
     int dim_width = -1;
     int dim_height = -1;
-
+    char cmd[2048];
     char buf[4096]; // may not be sufficient for long messages
-    int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
-    buf[read] = '\0';
-    printf ("Got %d chars:'%s'\n", read, buf);
-    // contains img info?
-    if(read>2) {
-        if(buf[0] == 'R' && buf[1] == ':') {
-            char * buf_i = buf + 2;
-            int buf_idx = 1;
-            while(buf[buf_idx] != 'W') {
-                buf_idx++;
-            }
-            buf_i[buf_idx-1] = '\0';
-            retry_time = atoi(buf_i);
-            log_msg(LOG_INFO,"Retry: %d", retry_time);
 
-            char * buf_i_w = buf + buf_idx + 2;
-            buf_idx = 0;
-            while(buf_i_w[buf_idx] != 'H') {
-                buf_idx++;
-            }
-            buf_i_w[buf_idx] = '\0';
-            dim_width = atoi(buf_i_w);
-            log_msg(LOG_INFO,"Width: %d", dim_width);
+//    int read_ok_dim = 0;
+    int read_ok_size = 0;
+    int sent_size = 0;
+    int outFileSize = -1;
 
-            char * buf_i_h = buf_i_w + buf_idx + 2;
-            buf_idx = 0;
-            while(buf_i_h[buf_idx] != '\0') {
-                buf_idx++;
-            }
-//            buf_i_h[buf_idx] = '\0';
-            dim_height = atoi(buf_i_h);
-            log_msg(LOG_INFO,"Height: %d", dim_height);
+    pollfd l_read_poll[1];
+    l_read_poll[0].fd = sd;
+    l_read_poll[0].events = POLLIN;
 
+    while(1) {
+        int read = -1;
+        int l_poll = poll(l_read_poll, 1, 5000);
+//        if (l_read_poll[1].revents & POLLIN) {
+        if (l_read_poll[0].revents & POLLIN) {
+            read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
+            if(read > 0) {
+                buf[read] = '\0';
+            } else {
+                SSL_write(ssl, "E:0", 3);
+            }
+        } else {
+            SSL_write(ssl, "E:1", 3);
         }
+//        int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
+//        buf[read] = '\0';
+        printf ("Got %d chars:'%s'\n", read, buf);
+        // contains img info?
+        if(read > 1) {
+            if(buf[0] == 'O' && buf[1] == 'K') {
+                log_msg(LOG_INFO, "Received OK...\n");
+//                read_ok_dim = 1;
+                read_ok_size = 1;
+                buf[0] = '\0';
+            } else if(buf[0] == 'R' && buf[1] == ':') {
+                char * buf_i = buf + 2;
+                int buf_idx = 1;
+                while(buf[buf_idx] != 'W') {
+                    buf_idx++;
+                }
+                buf_i[buf_idx-1] = '\0';
+                retry_time = atoi(buf_i);
+                log_msg(LOG_INFO,"Retry: %d", retry_time);
+
+                char * buf_i_w = buf + buf_idx + 2;
+                buf_idx = 0;
+                while(buf_i_w[buf_idx] != 'H') {
+                    buf_idx++;
+                }
+                buf_i_w[buf_idx] = '\0';
+                dim_width = atoi(buf_i_w);
+                log_msg(LOG_INFO,"Width: %d", dim_width);
+
+                char * buf_i_h = buf_i_w + buf_idx + 2;
+                buf_idx = 0;
+                while(buf_i_h[buf_idx] != '\0') {
+                    buf_idx++;
+                }
+    //            buf_i_h[buf_idx] = '\0';
+                dim_height = atoi(buf_i_h);
+                log_msg(LOG_INFO,"Height: %d", dim_height);
+                buf[0] = '\0';
+
+//                continue;
+            }
+
+        int t_sec = -1;
+        int t_min = -1;
+        int t_hours = -1;
+
+        if(retry_time != -1
+            && dim_width != -1
+            && dim_height != -1
+            && read_ok_size == 0
+        ) {
+            // get curren time
+            struct tm* ptr;
+            time_t t;
+            t = time(NULL);
+            ptr = localtime(&t);
+            log_msg(LOG_INFO, "Time: %s", asctime(ptr));
+//            log_msg(LOG_INFO, "Time: %s", asctime(ptr));
+            t_sec = ptr->tm_sec;
+            t_min = ptr->tm_min;
+            t_hours = ptr->tm_hour;
+
+            int t_h1 = t_hours / 10;
+            int t_h2 = t_hours % 10;
+            int t_m1 = t_min / 10;
+            int t_m2 = t_min % 10;
+            int t_s1 = t_sec / 10;
+            int t_s2 = t_sec % 10;
+
+            char * imgData[10] = {IMG_0,
+                                IMG_1,
+                                IMG_2,
+                                IMG_3,
+                                IMG_4,
+                                IMG_5,
+                                IMG_6,
+                                IMG_7,
+                                IMG_8,
+                                IMG_9};
+
+            char * ts_sep = IMG_PUNC;
+            char * ts_h1 = imgData[t_h1];
+            char * ts_h2 = imgData[t_h2];
+            char * ts_m1 = imgData[t_m1];
+            char * ts_m2 = imgData[t_m2];
+            char * ts_s1 = imgData[t_s1];
+            char * ts_s2 = imgData[t_s2];
+
+//            char time_string_msg[32];
+//            sprintf(time_string_msg, "%d%d:%d%d:%d%d",
+//                     t_h1, t_h2, t_m1, t_m2, t_s1, t_s2);
+//            SSL_write(ssl, time_string_msg, strlen(time_string_msg));
+
+            // select images
+            // generate whole image
+            log_msg(LOG_INFO, "Generating Image %s ...\n", IMG_OUT);
+
+
+    //    const char * p_name = "/usr/bin/convert";
+    //    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+    //    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
+    //    char* p_args[] = {"ls", "-l", NULL};
+    /*
+
+            const char * p_name = "/usr/bin/convert";
+            char * dims_str = "500x70!";
+            char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
+    //                          dims_str, // TODO replace dimension
+                              "500x70!", // TODO replace dimension
+    //                          IMG_OUT,
+                              "./img/out.jpg",
+                              NULL};
+    //                        __null};
+            // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
+    //        execv(p_name, p_args);
+    //        execv(p_name, p_args); // TODO crashing ... :/
+            execv(p_name, p_args); // TODO crashing ... :/
+    */
+
+            /*
+            const char * p_name = "echo";
+    //        char * dims_str = "500x70!";
+            char* p_args[] = {IMG_OUT,
+                              NULL};
+            execv(p_name, p_args); // TODO crashing ... :/
+            */
+            // send size of image to client
+    //        sprintf(cmd,
+    //                "convert "
+            sprintf(cmd,
+    //                "convert "
+                    "%s " // h1
+                    "%s " // h2
+                    "%s " // :
+                    "%s " // m1
+                    "%s " // m2
+                    "%s " // :
+                    "%s " // s1
+                    "%s " // s2
+                    "-background grey -alpha remove +append -resize %dx%d! %s",
+                    ts_h1, ts_h2, ts_sep, ts_m1, ts_m2, ts_sep, ts_s1, ts_s2,
+                    dim_width, dim_height,
+                    IMG_OUT);
+            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
+    //        int status = system(cmd);
+    //        int status = system(cmd);
+            sem_t *mySemaphore;
+
+            // Create and initialize a named semaphore
+            const char *semName = "/mysemaphore";
+            mySemaphore = sem_open(semName, O_CREAT, 0644, 1);
+            if (mySemaphore == SEM_FAILED) {
+                perror("sem_open");
+                exit(EXIT_FAILURE);
+            }
+
+            // Fork a new process
+            pid_t pid = fork();
+
+            if (pid == -1) {
+                // Error in fork
+                perror("fork");
+                exit(EXIT_FAILURE);
+            } else if (pid == 0) {
+                // Child process
+                log_msg(LOG_INFO, "Child process (before exec) PID: %d\n", getpid());
+
+                // Replace the child process with a new program
+    //            execl("/bin/ls", "ls", NULL);
+                sem_wait(mySemaphore);
+                printf("Entered the critical section in child 1\n");
+//                sleep(1);  // Simulate some critical work
+                execl("convert ", cmd, NULL);
+
+                printf("Leaving the critical section in child 1\n");
+                sem_post(mySemaphore);
+                exit(EXIT_SUCCESS);
+
+                // execl only returns if there is an error
+                perror("execl");
+                exit(EXIT_FAILURE);
+            } else {
+                // Parent process
+                log_msg(LOG_INFO, "Parent process, child PID: %d\n", pid);
+
+                // Wait for the child to complete
+                if (waitpid(pid, NULL, 0) == -1) {
+                    perror("waitpid");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+//            sem_destroy(mySemaphore);
+            waitpid(pid, NULL, 0);
+            sem_close(mySemaphore);
+            sem_unlink(semName);
+
+//            waitpid(pid1, NULL, 0);
+//            waitpid(pid2, NULL, 0);
+
+            log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
+
+            outFileSize = findSize(IMG_OUT);
+            log_msg(LOG_INFO, "Image %s with size: %d\n", IMG_OUT, outFileSize);
+
+            // send size of image to client
+            char size_string_msg[32];
+            sprintf(size_string_msg, "S:%d",
+                    outFileSize);
+            SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
+            log_msg(LOG_INFO, "Image size, sent: %d\n", IMG_OUT, outFileSize);
+            sent_size = 1;
+            continue;
+
+        } else {
+            // TODO print problem
+        }
+            if(
+//                    read_ok_dim == 1 &&
+                    read_ok_size == 1 &&
+                    outFileSize > 0) {
+                log_msg(LOG_INFO, "Will write image to client...\n");
+
+                char * buffer = 0;
+                FILE * f = fopen (IMG_OUT, "rb");
+
+                if (f) {
+                    buffer = (char*) malloc(outFileSize);
+                    if (buffer) {
+                        fread (buffer, 1, outFileSize, f);
+                    }
+                    fclose(f);
+                }
+
+                // send image to client
+                log_msg(LOG_INFO, "Writing image to client...\n");
+                SSL_write(ssl, buffer, outFileSize);
+                log_msg(LOG_INFO, "Image sent\n");
+                read_ok_size = 0;
+                sent_size = 0;
+                // wait for response
+                // wait <retry_time> seconds to send data again
+            }
+        }
+
     }
-
-    int t_sec = -1;
-    int t_min = -1;
-    int t_hours = -1;
-
-    if(retry_time != -1
-        && dim_width != -1
-        && dim_height != -1
-    ) {
-        // get curren time
-        struct tm* ptr;
-        time_t t;
-        t = time(NULL);
-        ptr = localtime(&t);
-        log_msg(LOG_INFO, "Time: %s", asctime(ptr));
-        log_msg(LOG_INFO, "Time: %s", asctime(ptr));
-        t_sec = ptr->tm_sec;
-        t_min = ptr->tm_min;
-        t_hours = ptr->tm_hour;
-
-        int t_h1 = t_hours / 10;
-        int t_h2 = t_hours % 10;
-        int t_m1 = t_min / 10;
-        int t_m2 = t_min % 10;
-        int t_s1 = t_sec / 10;
-        int t_s2 = t_sec % 10;
-
-        char * imgData[10] = {IMG_0,
-                            IMG_1,
-                            IMG_2,
-                            IMG_3,
-                            IMG_4,
-                            IMG_5,
-                            IMG_6,
-                            IMG_7,
-                            IMG_8,
-                            IMG_9};
-
-        char * ts_sep = IMG_PUNC;
-        char * ts_h1 = imgData[t_h1];
-        char * ts_h2 = imgData[t_h2];
-        char * ts_m1 = imgData[t_m1];
-        char * ts_m2 = imgData[t_m2];
-        char * ts_s1 = imgData[t_s1];
-        char * ts_s2 = imgData[t_s2];
-
-        char time_string_msg[32];
-        sprintf(time_string_msg, "%d%d:%d%d:%d%d",
-                 t_h1, t_h2, t_m1, t_m2, t_s1, t_s2);
-        SSL_write(ssl, time_string_msg, strlen(time_string_msg));
-
-        // select images
-        // generate whole image
-        log_msg(LOG_INFO, "Generating Image %s ...\n", IMG_OUT);
-
-
-//    const char * p_name = "/usr/bin/convert";
-//    const char * p_args = "./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-//    char const * p_args = {}; //"./img/jedna.png ./img/jedna.png ./img/jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg";
-//    char* p_args[] = {"ls", "-l", NULL};
-/*
-
-        const char * p_name = "/usr/bin/convert";
-        char * dims_str = "500x70!";
-        char* p_args[] = {"./img/jedna.png","./img/jedna.png","./img/jedna.png","-background","grey","-alpha","remove","+append","-resize",
-//                          dims_str, // TODO replace dimension
-                          "500x70!", // TODO replace dimension
-//                          IMG_OUT,
-                          "./img/out.jpg",
-                          NULL};
-//                        __null};
-        // convert jedna.png jedna.png jedna.png -background grey -alpha remove +append -resize 500x70! out.jpg
-//        execv(p_name, p_args);
-//        execv(p_name, p_args); // TODO crashing ... :/
-        execv(p_name, p_args); // TODO crashing ... :/
-*/
-
-        /*
-        const char * p_name = "echo";
-//        char * dims_str = "500x70!";
-        char* p_args[] = {IMG_OUT,
-                          NULL};
-        execv(p_name, p_args); // TODO crashing ... :/
-        */
-        // send size of image to client
-        char cmd[2048];
-        sprintf(cmd,
-                "convert "
-                "%s " // h1
-                "%s " // h2
-                "%s " // :
-                "%s " // m1
-                "%s " // m2
-                "%s " // :
-                "%s " // s1
-                "%s " // s2
-                "-background grey -alpha remove +append -resize %dx%d! %s",
-                ts_h1, ts_h2, ts_sep, ts_m1, ts_m2, ts_sep, ts_s1, ts_s2,
-                dim_width, dim_height,
-                IMG_OUT);
-        log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
-
-        int status = system(cmd);
-
-        log_msg(LOG_INFO, "Generating Image %s done\n", IMG_OUT);
-
-        int outFileSize = findSize(IMG_OUT);
-        log_msg(LOG_INFO, "Image %s with size: %d\n", IMG_OUT, outFileSize);
-
-        // send size of image to client
-        char size_string_msg[32];
-        sprintf(size_string_msg, "S:%d",
-                outFileSize);
-        SSL_write(ssl, size_string_msg, sizeof(size_string_msg));
-
-        log_msg(LOG_INFO, "Image size, sent: %d\n", IMG_OUT, outFileSize);
-
-        char * buffer = 0;
-        FILE * f = fopen (IMG_OUT, "rb");
-
-        if (f) {
-            buffer = (char*) malloc(outFileSize);
-            if (buffer) {
-                fread (buffer, 1, outFileSize, f);
-            }
-            fclose(f);
-        }
-
-        if (!buffer) {
-            // TODO error
-        }
-
-        // send image to client
-        log_msg(LOG_INFO, "Writing image to client...\n");
-        SSL_write(ssl, buffer, outFileSize);
-        log_msg(LOG_INFO, "Image sent\n");
-
-        // wait for response
-        // wait <retry_time> seconds to send data again
-    } else {
-        // TODO print problem
-    }
-
 
     close(sd);
     SSL_free(ssl);

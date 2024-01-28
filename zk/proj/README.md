@@ -23,3 +23,9 @@ klient ceka na velikost souboru
 
 
 ssl
+
+kveten cerven sem prace
+
+
+
+
