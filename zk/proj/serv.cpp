@@ -373,9 +373,9 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
 //        int read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
 //        buf[read] = '\0';
-        printf ("Got %d chars:'%s'\n", read, buf);
         // contains img info?
         if(read > 1) {
+            printf ("Got %d chars:'%s'\n", read, buf);
             if(buf[0] == 'O' && buf[1] == 'K') {
                 log_msg(LOG_INFO, "Received OK...\n");
 //                read_ok_dim = 1;

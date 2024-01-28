@@ -259,15 +259,22 @@ int main(int argc, char *argv[]) {
 //            execv(p_name, p_args);
 
             log_msg(LOG_INFO, "Killing child if necessary, pid: $d...", pid);
-            if(pid != 0 && pid != -1) {
+            if(pid >= 0) {
                 kill(pid, SIGKILL);
+//                kill(pid, SIGTERM);
             }
 
             pid = fork();
             if(pid == 0) {
                 // child
                 log_msg(LOG_INFO, "Opening file under child...");
-                int status = system("display ./img/recOut.jpg");
+//                int status = system("display ./img/recOut.jpg");
+
+//                execl("/usr/bin/display", {"./img/recOut.jpg"}, NULL);
+//                execl("/usr/bin/display", {"/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg"}, NULL);
+                char* args[] = {"display", "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg", NULL};
+                execv("/usr/bin/display", args);
+
                 exit(0);
             } else {
                 log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
