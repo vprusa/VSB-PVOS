@@ -543,8 +543,12 @@ void handle_client(int sd, SSL_CTX* ctx) {
     //            execl("/bin/ls", "ls", NULL);
                 sem_wait(mySemaphore);
                 printf("Entered the critical section in child 1\n");
-//                sleep(1);  // Simulate some critical work
-                execl("convert ", cmd, NULL);
+                // sleep(1);  // Simulate some critical work
+//                execl("convert ", cmd, NULL);
+//                execl("convert ", cmd, NULL);
+
+//                execv("/usr/bin/convert", cmd, NULL);
+                execl("/usr/bin/convert", cmd, NULL);
 
                 printf("Leaving the critical section in child 1\n");
                 sem_post(mySemaphore);
