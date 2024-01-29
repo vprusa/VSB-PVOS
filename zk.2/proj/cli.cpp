@@ -246,15 +246,17 @@ int main(int argc, char *argv[]) {
         log_msg(LOG_INFO, "Start download image...");
         FILE * f = fopen (OUT_FILE, "wb");
         while(1) {
-            err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
+            err = SSL_read(ssl, imgBuf, sizeof(imgBuf) - 1);
             log_msg(LOG_INFO, "Read %d bytes", err);
-
+            imgBuf[err] = '\0';
             if(err > 0) {
-                if (f) {
-                    fwrite(imgBuf, 1, imageSize, f);
-                }
+                fwrite(imgBuf, 1, err, f);
             } else {break;}
-            if(imgBuf[0] == '\0') {
+            if(imgBuf[0] == '\0'
+               && imgBuf[1] == '\0'
+                  && imgBuf[2] == '\0'
+                     && imgBuf[3] == '\0'
+            ) {
                 break;
             }
 

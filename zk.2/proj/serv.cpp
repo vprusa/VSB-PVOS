@@ -470,7 +470,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             exit(EXIT_FAILURE);
         }
 
-        int MAX_ARGS = 11;
+        int MAX_ARGS = 10;
 
         if(dim_width > 0 && dim_height > 0) {
 // "convert img/ring.png img/hour0940.png img/minute42.png
@@ -481,13 +481,13 @@ void handle_client(int sd, SSL_CTX* ctx) {
                     "%s/img/ring.png " //
                     "%s/img/%s " // hour
                     "%s/img/%s " // min
-                    " -quality 300 -layers flatten -resize %dx%d! -", // "%s ",
+                    " -quiet -layers flatten -resize %dx%d! -", // "%s ",
                     HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min,
                     dim_width, dim_height
                     // ,IMG_OUT
             );
         } else {
-            MAX_ARGS = 9;
+            MAX_ARGS = 8;
             //   "convert img/ring.png img/hour0940.png img/minute42.png
             //   -layers flatten -",
             sprintf(cmd,
@@ -496,7 +496,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
                     "%s/img/ring.png " //
                     "%s/img/%s " // hour
                     "%s/img/%s " // min
-                    " -quality 300 -layers flatten -",
+                    " -quiet -layers flatten -",
                     HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min
                     // ,IMG_OUT
             );
@@ -508,18 +508,16 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
 
         // Create a named pipe
+        unlink(fifoPath);
         if (mkfifo(fifoPath, 0666) == -1) {
             perror("mkfifo");
             exit(EXIT_FAILURE);
         }
 //        log_msg(LOG_INFO, "Created named pipe: %s", fifoPath);
 
-        int fifoFd = open(fifoPath, O_RDWR);
-        if (fifoFd == -1) {
-            log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
-            perror("open");
-//                    exit(EXIT_FAILURE);
-        }
+//        int fifoFd = open(fifoPath, O_RDWR);
+//        int fifoFd = open(fifoPath,  O_RDWR | O_NONBLOCK | O_CREAT);
+
 //        log_msg(LOG_INFO, "Forking...");
 
         char * cmdArgs[MAX_ARGS];
@@ -532,6 +530,15 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
         cmdArgs[i] = NULL;
 
+
+        int fifoFd = open(fifoPath,  O_RDWR);
+
+        if (fifoFd == -1) {
+            log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
+            perror("open");
+//                    exit(EXIT_FAILURE);
+        }
+
         // Fork a new process
         pid_t pid = fork();
 
@@ -541,15 +548,20 @@ void handle_client(int sd, SSL_CTX* ctx) {
             exit(EXIT_FAILURE);
         } else if (pid == 0) {
             // Child process
-            log_msg(LOG_INFO,
-                    "Child process (before exec) PID: %d\n", getpid());
+//            log_msg(LOG_INFO,
+//                    "Child process (before exec) PID: %d\n", getpid());
 
             sem_wait(mySemaphore);
 //            log_msg(LOG_INFO, "Entered the critical section in child");
 
 //            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
 
-
+          /*  int fifoFd = open(fifoPath,  O_WRONLY);
+            if (fifoFd == -1) {
+                log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
+                perror("open");
+//                    exit(EXIT_FAILURE);
+            }*/
                 // redir stdout to the named pipe
              if (dup2(fifoFd, STDOUT_FILENO) == -1) {
 //                if (dup2(STDOUT_FILENO, fifoFd) == -1) {
@@ -563,9 +575,14 @@ void handle_client(int sd, SSL_CTX* ctx) {
             int res = execvp("/usr/bin/convert", cmdArgs);
 //            SSL_write(ssl, buffer, outFileSize);
             // Remove the named pipe
+            write(STDOUT_FILENO, "\0\0\0\0",4 );
+//            write(STDOUT_FILENO, "\0",1 );
+//            write(fifoFd, "\0",1 );
+//            write(fifoFd, "\0",1 );\
 //            write(fifoFd, "\0",1 );
 
-            close(fifoFd);
+//            close(fifoFd);
+//            close(STDOUT_FILENO);
 //            unlink(fifoPath);
 
             log_msg(LOG_INFO, "Leaving the critical "
@@ -593,30 +610,26 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
 //            char buffer[1024];
 //            char buffer[4096];
-            char buffer[4096];
+//            char buffer[4096];
+            char buffer[1024];
             int bytesRead;
 
-//            log_msg(LOG_INFO, "Open fifo");
-            // Open the FIFO for reading
-//            int fifoFd = open(fifoPath, O_RDONLY);
-//            int fifoFd = open(fifoPath, O_RDWR);
-//            if (fifoFd == -1) {
-//                log_msg(LOG_ERROR, "Open fifo failed");
-//
-//                perror("fifo_open");
-//                exit(EXIT_FAILURE);
-//            }
-
             log_msg(LOG_INFO, "Read fifo");
+//            int fifoFd = open(fifoPath,  O_RDONLY);
 
+            if (fifoFd == -1) {
+                log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
+                perror("open");
+//                    exit(EXIT_FAILURE);
+            }
             // read fifo
             int bytesTotal = 0;
             while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
 //                if(buffer[bytesRead-1] == '\0') {
 //                    break;
 //                }
-                if ( bytesRead <= 0) {
-//                    SSL_write(ssl, "\0", 1);
+                if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
+                    SSL_write(ssl, "\0", 1);
                     log_msg(LOG_INFO, "Rec2send: done");
                     break;
                 }
@@ -632,6 +645,8 @@ void handle_client(int sd, SSL_CTX* ctx) {
                 close(fifoFd);
 //                exit(EXIT_FAILURE);
             }
+//            close(fifoFd);
+
             log_msg(LOG_INFO, "receiving done");
 
             // Close the FIFO
@@ -640,7 +655,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //            sem_destroy(mySemaphore);
         waitpid(pid, NULL, 0);
         close(fifoFd);
-
+        unlink(fifoPath);
         SSL_write(ssl, "\0", 1);
 //        close(fifoFd);
         sem_close(mySemaphore);
