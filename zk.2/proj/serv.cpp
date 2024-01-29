@@ -330,6 +330,7 @@ int main(int argc, char *argv[]) {
                         exit(0);
                     } else {
                         // parent
+                        close(client_fd);
                         log_msg(LOG_INFO, "Start handle - Parent process");
 //                        close(client_fd);
                     }
@@ -612,7 +613,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
 //            log_msg(LOG_INFO, "Generating Image cmd: %s", cmd);
             int res = execvp("/usr/bin/convert", cmdArgs);
-            write(STDOUT_FILENO, "\0\0\0\0",4 );
+//            write(STDOUT_FILENO, "\0\0\0\0",4 );
 //            write(STDOUT_FILENO, "\0",1 );
 //            write(fifoFd, "\0",1 );
 //            write(fifoFd, "\0",1 );
@@ -662,7 +663,8 @@ void handle_client(int sd, SSL_CTX* ctx) {
             int bytesTotal = 0;
 //            while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
             while ((bytesRead = read(pfd[0], buffer, sizeof(buffer) - 1)) > 0) {
-                if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
+//                if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
+                if ( bytesRead <= 0 ) {
                     SSL_write(ssl, "\0", 1);
                     log_msg(LOG_INFO, "Rec2send: done");
                     break;

@@ -92,24 +92,7 @@ int main(int argc, char *argv[]) {
     int dim_width = -1;
     int dim_height = -1;
     int res = 0;
-//        help();
-//        return 2;
     if (argc == 2) {
-//    } else {
-//        retry_time = atoi(argv[1]);
-    /*    char * dimensions = argv[1];
-        int dim_str_len = strlen(dimensions);
-        for(int i = 0 ; i < dim_str_len; i++) {
-            if(dimensions[i] == 'x') {
-                dimensions[i] = '\0';
-                dim_width = atoi(dimensions);
-                dimensions[i] = 'x';
-                dimensions = dimensions + i + 1;
-                dim_height = atoi(dimensions);
-                break;
-            }
-        }*/
-//        int width, height;
         // TODO parse dimensions 10x10 and 100x10, etc..
         sscanf(argv[1], "%3dx%3d", &dim_width, &dim_height);
 //        if (strlen(argv[1]) != 7 || argv[1][3] != 'x'
@@ -273,23 +256,26 @@ int main(int argc, char *argv[]) {
         char * imgBuf = (char*) malloc(imageSize);
         log_msg(LOG_INFO, "Start download image...");
         FILE * f = fopen (OUT_FILE, "wb");
+        int totalBytes = 0;
         while(1) {
             err = SSL_read(ssl, imgBuf, sizeof(imgBuf) - 1);
-//            log_msg(LOG_INFO, "Read %d bytes", err);
+            log_msg(LOG_INFO, "Read %d bytes", err);
             imgBuf[err] = '\0';
+            totalBytes += err;
             if(err > 0) {
                 fwrite(imgBuf, 1, err, f);
             } else {break;}
-            if(imgBuf[0] == '\0'
+     /*       if(imgBuf[0] == '\0'
                && imgBuf[1] == '\0'
                   && imgBuf[2] == '\0'
                      && imgBuf[3] == '\0'
             ) {
                 break;
             }
-
+*/
         }
         fclose (f);
+        log_msg(LOG_INFO, "Read total: %d bytes", totalBytes);
         log_msg(LOG_INFO, "File closed");
 
 //        pid_t pid;
@@ -306,8 +292,8 @@ int main(int argc, char *argv[]) {
 //            int sleep_time = 2;
 //            sleep(sleep_time);
 //            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
-//            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
-            char* args[] = {"display", "-update", "1", ERR_FILE, NULL};
+            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
+//            char* args[] = {"display", "-update", "1", ERR_FILE, NULL};
             execv("/usr/bin/display", args);
 //            char* args[] = {"xdg-open", "-update", "1", OUT_FILE, NULL};
 //            execv("/usr/bin/xdg-open", args);
@@ -317,7 +303,7 @@ int main(int argc, char *argv[]) {
             log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
             // parent
             usleep(sleepTime);
-            sleepTime = sleepTime/2;
+            sleepTime = sleepTime/sleepModif;
             if(pid >= 0) {
 //                kill(pid, SIGKILL);
                 kill(pid, SIGTERM);
