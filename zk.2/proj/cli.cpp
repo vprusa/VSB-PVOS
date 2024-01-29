@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
@@ -45,6 +46,7 @@
 
 //#define OUT_FILE "./img/recOut.jpg"
 #define OUT_FILE "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj/img/recOut.png"
+#define ERR_FILE "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj/img/error.png"
 
 // debug flag
 int g_debug = LOG_INFO;
@@ -84,6 +86,9 @@ void help() {
 
 int main(int argc, char *argv[]) {
 //    exit(0);
+    int initSleepTime = 5000000;
+    int sleepTime = initSleepTime;
+    int sleepModif = 2;
     int dim_width = -1;
     int dim_height = -1;
     int res = 0;
@@ -141,7 +146,10 @@ int main(int argc, char *argv[]) {
   char     buf [4096];
   const SSL_METHOD *meth;
 
-  SSLeay_add_ssl_algorithms();
+    while(1) {
+
+
+        SSLeay_add_ssl_algorithms();
   meth = SSLv23_client_method();
   SSL_load_error_strings();
   ctx = SSL_CTX_new (meth);
@@ -200,7 +208,7 @@ int main(int argc, char *argv[]) {
 
   // Prepare a message with the size of the received message
 
-    int imageSize = -1;
+//    int imageSize = -1;
     int sent_dim = 0;
     int sent_ok = 0;
     int receivedSizeLastTime = 0;
@@ -226,7 +234,6 @@ int main(int argc, char *argv[]) {
     int t_hour = ptr->tm_hour;
     int t_min = ptr->tm_min;
 
-    while(1) {
         if( dim_width > 0 && dim_height > 0) {
             if(t_hour < 10 && t_min < 10) {
                 sprintf(time_and_dim_message,
@@ -286,128 +293,45 @@ int main(int argc, char *argv[]) {
         log_msg(LOG_INFO, "File closed");
 
 //        pid_t pid;
-        if(pid >= 0) {
-            kill(pid, SIGKILL);
+//        if(pid >= 0) {
+//            kill(pid, SIGKILL);
 //                kill(pid, SIGTERM);
-        }
+//        }
 
         pid = fork();
         if(pid == 0) {
             // child
             log_msg(LOG_INFO, "Opening file under child...");
 //                int status = system("display ./img/recOut.jpg");
-
-//                execl("/usr/bin/display", {"./img/recOut.jpg"}, NULL);
-//                execl("/usr/bin/display", {"/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg"}, NULL);
-//            char* args[] = {"display", "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg", NULL};
-//            char* args[] = {"display", OUT_FILE, NULL};
-//            execv("/usr/bin/display", args);
-            int sleep_time = 2;
-            sleep(sleep_time);
-            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
-//            execv("/usr/bin/display", args);
+//            int sleep_time = 2;
+//            sleep(sleep_time);
+//            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
+//            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
+            char* args[] = {"display", "-update", "1", ERR_FILE, NULL};
+            execv("/usr/bin/display", args);
+//            char* args[] = {"xdg-open", "-update", "1", OUT_FILE, NULL};
+//            execv("/usr/bin/xdg-open", args);
 
 //            exit(0);
         } else {
             log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
             // parent
-        }
-
-        break;
-        int read = -1;
-        int l_poll = poll(l_read_poll, 1, 5000);
-        if (l_read_poll[0].revents & POLLIN) {
-            read = SSL_read(ssl, buf, sizeof(buf) - 1);
-            CHK_SSL(err);
-            if(read > 0) {
-                buf[read] = '\0';
-            }
-        }
-        if (err < 1) {
-            continue;
-        }
-        if (read > 1) {
-            if(buf[0] == 'E' && buf[1] == ':') {
-                sent_ok = 0;
-                sent_dim = 0;
-                printf("Got %d chars:'%s'\n", err, buf);
-                continue;
-            }
-        }
-
-        buf[err] = '\0';
-        printf("Got %d chars:'%s'\n", err, buf);
-
-        receivedSizeLastTime = 0;
-        if(buf[0] == 'S' && buf[1] == ':') {
-            char *buf_i = buf + 2;
-            imageSize = atoi(buf_i);
-            printf("New image size will be: %d\n", imageSize);
-            SSL_write(ssl, "OK", 2);
-            sent_ok = 1;
-
-//        }
-//        if(sent_ok == 1) {
-            log_msg(LOG_INFO, "Start download image...");
-            char * imgBuf = (char*) malloc(imageSize);
-
-            err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
-            if(err > 1 && imgBuf[0] == 'E' && imgBuf[1] == ':' ) {
-                sent_ok = 0;
-                sent_dim = 0;
-                continue;
-            }
-            FILE * f = fopen (OUT_FILE, "wb");
-
-            if (f) {
-                fwrite(imgBuf, 1, imageSize, f);
-                fclose (f);
-            }
-
-            receivedSizeLastTime = 0;
-            log_msg(LOG_INFO, "Download image done");
-            log_msg(LOG_INFO, "Killing child if necessary, pid: $d...", pid);
+            usleep(sleepTime);
+            sleepTime = sleepTime/2;
             if(pid >= 0) {
-                kill(pid, SIGKILL);
-//                kill(pid, SIGTERM);
-            }
-
-            pid = fork();
-            if(pid == 0) {
-                // child
-                log_msg(LOG_INFO, "Opening file under child...");
-//                int status = system("display ./img/recOut.jpg");
-
-//                execl("/usr/bin/display", {"./img/recOut.jpg"}, NULL);
-//                execl("/usr/bin/display", {"/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg"}, NULL);
-                char* args[] = {"display", "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg", NULL};
-                execv("/usr/bin/display", args);
-
-                exit(0);
-            } else {
-                log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
-                // parent
-            }
-
-            log_msg(LOG_INFO, "opening file %s done, status: %d\n", OUT_FILE);
-            request_new_time = 1;
-
-            log_msg(LOG_INFO, "Sleeping seconds ...");
-
-
-        } else {
-            receivedSizeLastTime = 0;
+//                kill(pid, SIGKILL);
+                kill(pid, SIGTERM);
         }
-//            SSL_shutdown(ssl);
-        int sleep_time = 2;
-        sleep(sleep_time);
-        sent_dim = 0;
-        log_msg(LOG_INFO, "woke up, requests time again ...", sleep_time);
+        }
+        waitpid(pid, NULL, 0);
+//        break;
+
+        SSL_shutdown(ssl);  /* send SSL/TLS close_notify */
+        close (sd);
+        SSL_free (ssl);
+        SSL_CTX_free (ctx);
 
     }
-    SSL_shutdown(ssl);  /* send SSL/TLS close_notify */
-  close (sd);
-  SSL_free (ssl);
-  SSL_CTX_free (ctx);
+
 }
 /* EOF - cli.cpp */

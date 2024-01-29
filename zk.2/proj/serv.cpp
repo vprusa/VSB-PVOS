@@ -602,14 +602,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //            log_msg(LOG_INFO, "Entered the critical section in child");
 
 //            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
-
-          /*  int fifoFd = open(fifoPath,  O_WRONLY);
-            if (fifoFd == -1) {
-                log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
-                perror("open");
-//                    exit(EXIT_FAILURE);
-            }*/
-                // redir stdout to the named pipe
 //            if (dup2(fifoFd, STDOUT_FILENO) == -1) {
                 if (dup2(pfd[1], STDOUT_FILENO) == -1) {
 //                if (dup2(STDOUT_FILENO, fifoFd) == -1) {
@@ -618,15 +610,11 @@ void handle_client(int sd, SSL_CTX* ctx) {
                     exit(EXIT_FAILURE);
                 }
 
-//            log_msg(LOG_INFO, "Dumping data to pipe: %s - done", fifoPath);
 //            log_msg(LOG_INFO, "Generating Image cmd: %s", cmd);
             int res = execvp("/usr/bin/convert", cmdArgs);
-//            SSL_write(ssl, buffer, outFileSize);
-            // Remove the named pipe
             write(STDOUT_FILENO, "\0\0\0\0",4 );
 //            write(STDOUT_FILENO, "\0",1 );
 //            write(fifoFd, "\0",1 );
-//            write(fifoFd, "\0",1 );\
 //            write(fifoFd, "\0",1 );
 
 //            close(fifoFd);
