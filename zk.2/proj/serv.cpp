@@ -489,11 +489,13 @@ void handle_client(int sd, SSL_CTX* ctx) {
         // Create and initialize a named semaphore
         const char *semName = "/mysemaphore";
         mySemaphore = sem_open(semName, O_CREAT, 0644, 1);
+        int semVal = -1;
+        int semRes = sem_getvalue(mySemaphore, &semVal);
+        log_msg(LOG_INFO, "SEM: %d, %d", semRes, semVal);
         if (mySemaphore == SEM_FAILED) {
             perror("sem_open");
             exit(EXIT_FAILURE);
         }
-        sem_wait(mySemaphore);
 
         int MAX_ARGS = 9;
 
@@ -578,6 +580,9 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                    "Child process (before exec) PID: %d\n", getpid());
             close(pfd[0]);
 //            log_msg(LOG_INFO, "Entered the critical section in child");
+            log_msg(LOG_INFO, "Locking sem");
+            sem_wait(mySemaphore);
+            log_msg(LOG_INFO, "Sem locked");
 
 //            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
 //            if (dup2(fifoFd, STDOUT_FILENO) == -1) {
@@ -667,7 +672,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                exit(EXIT_FAILURE);
             }
 //            close(fifoFd);
-            sem_post(mySemaphore);
+//            sem_post(mySemaphore);
 
             log_msg(LOG_INFO, "receiving done");
 
@@ -675,6 +680,11 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
 
         waitpid(pid, NULL, 0);
+        log_msg(LOG_INFO, "sem_post before");
+        sem_post(mySemaphore);
+        log_msg(LOG_INFO, "sem_post after");
+
+//        sem_post(mySemaphore);
 //        sem_post(mySemaphore);
         close(fifoFd);
         unlink(fifoPath);
