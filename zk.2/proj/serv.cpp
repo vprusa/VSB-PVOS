@@ -449,7 +449,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
     if(t_hour == -1 || t_min == -1) {
         some_err = 1;
     }
-    some_err = 1;
+//    some_err = 1;
 
     if((dim_width == -1 && dim_height != -1)||(dim_width != -1 && dim_height == -1)) {
         some_err = 1;
@@ -510,7 +510,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             exit(EXIT_FAILURE);
         }
 
-        int MAX_ARGS = 10;
+        int MAX_ARGS = 9;
 
         if(dim_width > 0 && dim_height > 0) {
 // "convert img/ring.png img/hour0940.png img/minute42.png
@@ -521,13 +521,13 @@ void handle_client(int sd, SSL_CTX* ctx) {
                     "%s/img/ring.png " //
                     "%s/img/%s " // hour
                     "%s/img/%s " // min
-                    " -quiet -layers flatten -resize %dx%d! -", // "%s ",
+                    " -layers flatten -resize %dx%d! -", // "%s ",
                     HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min,
                     dim_width, dim_height
                     // ,IMG_OUT
             );
         } else {
-            MAX_ARGS = 8;
+            MAX_ARGS = 7;
             //   "convert img/ring.png img/hour0940.png img/minute42.png
             //   -layers flatten -",
             sprintf(cmd,
@@ -536,7 +536,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
                     "%s/img/ring.png " //
                     "%s/img/%s " // hour
                     "%s/img/%s " // min
-                    " -quiet -layers flatten -",
+                    " -layers flatten -",
                     HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min
                     // ,IMG_OUT
             );

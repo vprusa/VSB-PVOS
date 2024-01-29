@@ -30,6 +30,7 @@
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
+#define HOME_DIR "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj"
 
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
@@ -42,7 +43,9 @@
 #define LOG_DEBUG               2       // debug messages
 
 
-#define OUT_FILE "./img/recOut.jpg"
+//#define OUT_FILE "./img/recOut.jpg"
+#define OUT_FILE "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj/img/recOut.png"
+
 // debug flag
 int g_debug = LOG_INFO;
 //static const char* socket_path = "/tmp/mysocket";
@@ -224,12 +227,29 @@ int main(int argc, char *argv[]) {
     int t_min = ptr->tm_min;
 
     while(1) {
-//        if (sent_dim == 0) {
         if( dim_width > 0 && dim_height > 0) {
-            sprintf(time_and_dim_message,
+            if(t_hour < 10 && t_min < 10) {
+                sprintf(time_and_dim_message,
+                        "TIME 0%d:0%d SIZE %dx%d",
+//                    "TIME %d:0%d SIZE yyyx%d",
+                        t_hour, t_min, dim_width, dim_height);
+            } else if(t_hour < 10) {
+                sprintf(time_and_dim_message,
+                        "TIME 0%d:%d SIZE %dx%d",
+                        t_hour, t_min, dim_width, dim_height);
+            } else if (t_min < 10) {
+                sprintf(time_and_dim_message,
+                        "TIME %d:0%d SIZE %dx%d",
+                        t_hour, t_min, dim_width, dim_height);
+            } else {
+                sprintf(time_and_dim_message,
+                        "TIME %d:%d SIZE %dx%d",
+                        t_hour, t_min, dim_width, dim_height);
+            }
+//            sprintf(time_and_dim_message,
 //                    "TIME %d:%d SIZE %dx%d",
-                    "TIME %d:0%d SIZE yyyx%d",
-                t_hour, t_min, dim_width, dim_height);
+////                    "TIME %d:0%d SIZE yyyx%d",
+//                    t_hour, t_min, dim_width, dim_height);
         } else {
             sprintf(time_and_dim_message,
                     "TIME %d:%d",
@@ -264,6 +284,34 @@ int main(int argc, char *argv[]) {
         }
         fclose (f);
         log_msg(LOG_INFO, "File closed");
+
+//        pid_t pid;
+        if(pid >= 0) {
+            kill(pid, SIGKILL);
+//                kill(pid, SIGTERM);
+        }
+
+        pid = fork();
+        if(pid == 0) {
+            // child
+            log_msg(LOG_INFO, "Opening file under child...");
+//                int status = system("display ./img/recOut.jpg");
+
+//                execl("/usr/bin/display", {"./img/recOut.jpg"}, NULL);
+//                execl("/usr/bin/display", {"/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg"}, NULL);
+//            char* args[] = {"display", "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg", NULL};
+//            char* args[] = {"display", OUT_FILE, NULL};
+//            execv("/usr/bin/display", args);
+            int sleep_time = 2;
+            sleep(sleep_time);
+            char* args[] = {"display", "-update", "1", OUT_FILE, NULL};
+//            execv("/usr/bin/display", args);
+
+//            exit(0);
+        } else {
+            log_msg(LOG_INFO, "Parent fork child pid: %d...", pid);
+            // parent
+        }
 
         break;
         int read = -1;
