@@ -170,15 +170,17 @@ int main(int argc, char *argv[]) {
 //    exit(0);
 
     // Create and initialize a named semaphore
-    sem_t *mySemaphore;
-    const char *semName = "/mysemaphore";
+/*    sem_t *mySemaphore;
+
     mySemaphore = sem_open(semName, O_CREAT, 0644, 1);
     if (mySemaphore == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);
     }
+*/
 
-    sem_close(mySemaphore);
+//    sem_close(mySemaphore);
+    const char *semName = "/mysemaphore";
     sem_unlink(semName);
     unlink(fifoPath);
 
@@ -531,7 +533,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
         cmdArgs[i] = NULL;
 
-
         int fifoFd = open(fifoPath,  O_RDWR);
 
         if (fifoFd == -1) {
@@ -540,6 +541,13 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                    exit(EXIT_FAILURE);
         }
 
+        int ret, pfd[2];
+        ret = pipe(pfd);
+        if (ret != 0) {
+            log_msg(LOG_INFO,
+                    "Unable to create a pipe; errno: %d",errno);
+            exit(1);
+        }
         // Fork a new process
         pid_t pid = fork();
 
@@ -551,7 +559,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             // Child process
 //            log_msg(LOG_INFO,
 //                    "Child process (before exec) PID: %d\n", getpid());
-
+            close(pfd[0]);
             sem_wait(mySemaphore);
 //            log_msg(LOG_INFO, "Entered the critical section in child");
 
@@ -564,7 +572,8 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                    exit(EXIT_FAILURE);
             }*/
                 // redir stdout to the named pipe
-             if (dup2(fifoFd, STDOUT_FILENO) == -1) {
+//            if (dup2(fifoFd, STDOUT_FILENO) == -1) {
+                if (dup2(pfd[1], STDOUT_FILENO) == -1) {
 //                if (dup2(STDOUT_FILENO, fifoFd) == -1) {
 //                    log_msg(LOG_ERROR, "Dumping data to pipe failed: %s", fifoPath);
                     perror("dup2");
@@ -591,7 +600,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
 //                unlink(fifoPath);
 //            close(fifoFd);
-
+            close(pfd[1]);
             sem_post(mySemaphore);
 
             // execl only returns if there is an error
@@ -616,19 +625,17 @@ void handle_client(int sd, SSL_CTX* ctx) {
 
             log_msg(LOG_INFO, "Read fifo");
 //            fifoFd = open(fifoPath,  O_RDONLY | O_CREAT);
-
-            if (fifoFd == -1) {
+            close(pfd[1]);
+            /*if (fifoFd == -1) {
                 log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
                 perror("open");
 //                    exit(EXIT_FAILURE);
-            }
+            }*/
             log_msg(LOG_INFO, "Read fifo 2 %d", fifoFd);
             // read fifo
             int bytesTotal = 0;
-            while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
-//                if(buffer[bytesRead-1] == '\0') {
-//                    break;
-//                }
+//            while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
+            while ((bytesRead = read(pfd[0], buffer, sizeof(buffer) - 1)) > 0) {
                 if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
                     SSL_write(ssl, "\0", 1);
                     log_msg(LOG_INFO, "Rec2send: done");
