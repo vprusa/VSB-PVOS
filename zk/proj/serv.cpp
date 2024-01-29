@@ -42,15 +42,15 @@
 #define CERTF  HOME "my.crt"
 #define KEYF  HOME  "my.key"
 
-#define IMG_OUT "./img/out.jpg"
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
 // TODO
+// "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/recOut.jpg"
+/*
 #define IMG_PUNC "./img/sem.png"
-
 #define IMG_0 "./img/nula.png"
 #define IMG_1 "./img/jedna.png"
 #define IMG_2 "./img/dva.png"
@@ -61,6 +61,25 @@
 #define IMG_7 "./img/sedm.png"
 #define IMG_8 "./img/osm.png"
 #define IMG_9 "./img/devet.png"
+*/
+
+#define IMG_PUNC "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sem.png"
+
+#define IMG_0 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/nula.png"
+#define IMG_1 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/jedna.png"
+#define IMG_2 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/dva.png"
+#define IMG_3 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/tri.png"
+#define IMG_4 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/ctyri.png"
+#define IMG_5 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/pet.png"
+#define IMG_6 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sest.png"
+#define IMG_7 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sedm.png"
+#define IMG_8 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/osm.png"
+#define IMG_9 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/devet.png"
+
+//#define IMG_OUT "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/out.jpg"
+//#define IMG_OUT "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/out.jpg"
+//#define IMG_OUT "out.jpg"
+#define IMG_OUT "./img/out.jpg"
 
 
 #define LOG_ERROR               0       // errors
@@ -277,20 +296,21 @@ int main(int argc, char *argv[]) {
                     getpeername(l_sock_client, (sockaddr *) &l_srv_addr, &l_lsa);
                     log_msg(LOG_INFO, "Client IP: '%s'  port: %d",
                             inet_ntoa(l_srv_addr.sin_addr), ntohs(l_srv_addr.sin_port));
-                    handle_client(client_fd, ctx);
+//                    handle_client(client_fd, ctx);
 
-/*
                     pid_t pid = fork();
                     if(pid == 0) {
+                        log_msg(LOG_INFO, "Start handle - Child process");
                         // child
-                        close(listen_sd);
-                        close(client_fd);
+                        handle_client(client_fd, ctx);
+//                        close(listen_sd);
+//                        close(client_fd);
                         exit(0);
                     } else {
                         // parent
-                        close(client_fd);
+                        log_msg(LOG_INFO, "Start handle - Parent process");
+//                        close(client_fd);
                     }
-*/
 
 //                    break;
                 }
@@ -345,7 +365,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
     int retry_time = -1;
     int dim_width = -1;
     int dim_height = -1;
-    char cmd[2048];
+    char cmd[4096];
     char buf[4096]; // may not be sufficient for long messages
 
 //    int read_ok_dim = 0;
@@ -500,21 +520,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             // send size of image to client
     //        sprintf(cmd,
     //                "convert "
-            sprintf(cmd,
-    //                "convert "
-                    "%s " // h1
-                    "%s " // h2
-                    "%s " // :
-                    "%s " // m1
-                    "%s " // m2
-                    "%s " // :
-                    "%s " // s1
-                    "%s " // s2
-                    "-background grey -alpha remove +append -resize %dx%d! %s",
-                    ts_h1, ts_h2, ts_sep, ts_m1, ts_m2, ts_sep, ts_s1, ts_s2,
-                    dim_width, dim_height,
-                    IMG_OUT);
-            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
 
     //        int status = system(cmd);
     //        int status = system(cmd);
@@ -543,12 +549,38 @@ void handle_client(int sd, SSL_CTX* ctx) {
     //            execl("/bin/ls", "ls", NULL);
                 sem_wait(mySemaphore);
                 printf("Entered the critical section in child 1\n");
+
+                sprintf(cmd,
+//                        "convert "
+                                            "/usr/bin/convert "
+                        "%s " // h1
+                        "%s " // h2
+                        "%s " // :
+                        "%s " // m1
+                        "%s " // m2
+                        "%s " // :
+                        "%s " // s1
+                        "%s " // s2
+                        "-background grey -alpha remove +append -resize %dx%d! %s ",
+                        ts_h1, ts_h2, ts_sep, ts_m1, ts_m2, ts_sep, ts_s1, ts_s2,
+                        dim_width, dim_height,
+                        IMG_OUT);
+                log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
+
+
+
                 // sleep(1);  // Simulate some critical work
 //                execl("convert ", cmd, NULL);
 //                execl("convert ", cmd, NULL);
-
-//                execv("/usr/bin/convert", cmd, NULL);
+                char* args[] = {cmd, NULL};
+//                execv("/usr/bin/convert", cmd);
+//                execl("/usr/bin/convert", cmd, NULL);
+//                execl("/usr/bin/convert", cmd, NULL);
                 execl("/usr/bin/convert", cmd, NULL);
+                int status = system(cmd);
+
+//                execl("/usr/bin/convert", cmd, NULL);
 
                 printf("Leaving the critical section in child 1\n");
                 sem_post(mySemaphore);

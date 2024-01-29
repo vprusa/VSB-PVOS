@@ -241,7 +241,28 @@ int main(int argc, char *argv[]) {
                time_and_dim_message);
         sent_dim = 1;
 //        }
+        int imageSize = 4096;
+        char * imgBuf = (char*) malloc(imageSize);
+        log_msg(LOG_INFO, "Start download image...");
+        FILE * f = fopen (OUT_FILE, "wb");
+        while(1) {
+            err = SSL_read(ssl, imgBuf, sizeof(buf) - 1);
+            log_msg(LOG_INFO, "Read %d bytes", err);
 
+            if(err > 0) {
+                if (f) {
+                    fwrite(imgBuf, 1, imageSize, f);
+                }
+            } else {break;}
+            if(imgBuf[0] == '\0') {
+                break;
+            }
+
+        }
+        fclose (f);
+        log_msg(LOG_INFO, "File closed");
+
+        break;
         int read = -1;
         int l_poll = poll(l_read_poll, 1, 5000);
         if (l_read_poll[0].revents & POLLIN) {

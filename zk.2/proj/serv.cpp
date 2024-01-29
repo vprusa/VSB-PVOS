@@ -36,11 +36,14 @@
 #include <fcntl.h>
 
 #include <time.h>
+#include <sys/stat.h>
 
 
 #define HOME "./"
 #define CERTF  HOME "my.crt"
 #define KEYF  HOME  "my.key"
+
+#define HOME_DIR "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj"
 
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
@@ -132,8 +135,10 @@ struct pollfd_ssl
 };
 
 //sem_t mySemaphore;
+const char *fifoPath = "/tmp/myfifo";
 
 void handle_client(int sd, SSL_CTX* ctx);
+
 void* handle_client_thread(void* arguments);
 
 void help() {
@@ -163,6 +168,20 @@ long findSize(char * file_name) {
 int main(int argc, char *argv[]) {
 
 //    exit(0);
+
+    // Create and initialize a named semaphore
+    sem_t *mySemaphore;
+    const char *semName = "/mysemaphore";
+    mySemaphore = sem_open(semName, O_CREAT, 0644, 1);
+    if (mySemaphore == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    sem_close(mySemaphore);
+    sem_unlink(semName);
+    unlink(fifoPath);
+
 
     int use_poll = 1;
 
@@ -374,21 +393,24 @@ void handle_client(int sd, SSL_CTX* ctx) {
     int outFileSize = -1;
     int t_hour = -1;
     int t_min = -1;
-    int read = -1;
-    read = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
-    if(read > 0) {
-        buf[read] = '\0';
+    int readb = -1;
+    readb = SSL_read (ssl, buf, sizeof(buf) - 1);    CHK_SSL(err);
+    if(readb > 0) {
+        buf[readb] = '\0';
+        char dim_delim = buf[10];
         log_msg(LOG_INFO, "Got %d chars:'%s'", read, buf);
-        if(read > 9) {
-            if(buf[0] == 'T'
-               && buf[1] == 'I'
-                  && buf[2] == 'M'
-                     && buf[3] == 'E'
-                        && buf[4] == ' '
+        if(readb > 9) {
+            if(    buf[0] == 'T'
+                && buf[1] == 'I'
+                && buf[2] == 'M'
+                && buf[3] == 'E'
+                && buf[4] == ' '
+                && buf[7] == ':' // TODO floating delim
             ) {
-//                char * hours_ptr = buf[5];
+                // TODO time: H:MM or H:M ?
                 buf[7] = '\0';
                 t_hour = atoi(&buf[5]);
+
                 buf[10] = '\0';
                 t_min = atoi(&buf[8]);
                 log_msg(LOG_INFO, "Parsed Time: %d:%d", t_hour, t_min);
@@ -396,14 +418,16 @@ void handle_client(int sd, SSL_CTX* ctx) {
                 // TODO ERRROR
             }
         }
-        if(read > 11) {
-            if(buf[10] == ' '
+        if(readb > 11) {
+            if( dim_delim == ' ' // TODO floating space delim and rest of msg
                && buf[11] == 'S'
                && buf[12] == 'I'
                && buf[13] == 'Z'
                && buf[14] == 'E'
                && buf[15] == ' '
+               && buf[17] == 'x' // TODO floating delim ...
                ) {
+                // TODO dim WWWxHHH, WWxHHH or WWWxHH, etc...
                 // DIM
                 buf[17] = '\0';
                 dim_width = atoi(&buf[16]);
@@ -415,6 +439,216 @@ void handle_client(int sd, SSL_CTX* ctx) {
     } else {
         // TODO err
     }
+
+    // if time got, then generate image
+    if(t_hour != -1 && t_min != -1) {
+        log_msg(LOG_INFO, "Will generate image data..");
+
+        // round minutes to closest 10
+        int t_hour_min_round = t_min - (t_min % 10) ;
+        int t_hour_lower = t_hour % 12;
+        char img_hour[20];
+        char img_min[20]; // minute23.png
+
+        sprintf(img_hour, "hour%.2d%.2d.png",
+                t_hour_lower, t_hour_min_round);
+        sprintf(img_min, "minute%.2d.png", t_min);
+
+//        log_msg(LOG_INFO, "Generated time: %s:%s", img_hour, img_min);
+        log_msg(LOG_INFO,
+                "Generated time file names: %s %s",
+                img_hour, img_min);
+
+        log_msg(LOG_INFO, "Will generate image..");
+        sem_t *mySemaphore;
+
+        // Create and initialize a named semaphore
+        const char *semName = "/mysemaphore";
+        mySemaphore = sem_open(semName, O_CREAT, 0644, 1);
+        if (mySemaphore == SEM_FAILED) {
+            perror("sem_open");
+            exit(EXIT_FAILURE);
+        }
+
+        int MAX_ARGS = 11;
+
+        if(dim_width > 0 && dim_height > 0) {
+// "convert img/ring.png img/hour0940.png img/minute42.png
+// -layers flatten -resize 400x300! -"
+            sprintf(cmd,
+//                        "convert "
+                    "convert "
+                    "%s/img/ring.png " //
+                    "%s/img/%s " // hour
+                    "%s/img/%s " // min
+                    " -quality 300 -layers flatten -resize %dx%d! -", // "%s ",
+                    HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min,
+                    dim_width, dim_height
+                    // ,IMG_OUT
+            );
+        } else {
+            MAX_ARGS = 9;
+            //   "convert img/ring.png img/hour0940.png img/minute42.png
+            //   -layers flatten -",
+            sprintf(cmd,
+//                        "convert "
+                    "convert "
+                    "%s/img/ring.png " //
+                    "%s/img/%s " // hour
+                    "%s/img/%s " // min
+                    " -quality 300 -layers flatten -",
+                    HOME_DIR, HOME_DIR, img_hour, HOME_DIR, img_min
+                    // ,IMG_OUT
+            );
+        }
+        log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
+
+        log_msg(LOG_INFO, "Creating named pipe: %s", fifoPath);
+
+
+        // Create a named pipe
+        if (mkfifo(fifoPath, 0666) == -1) {
+            perror("mkfifo");
+            exit(EXIT_FAILURE);
+        }
+//        log_msg(LOG_INFO, "Created named pipe: %s", fifoPath);
+
+        int fifoFd = open(fifoPath, O_RDWR);
+        if (fifoFd == -1) {
+            log_msg(LOG_ERROR, "Opening pipe failed: %s", fifoPath);
+            perror("open");
+//                    exit(EXIT_FAILURE);
+        }
+//        log_msg(LOG_INFO, "Forking...");
+
+        char * cmdArgs[MAX_ARGS];
+        int i = 0;
+        // split to args
+        char *token = strtok(cmd, " ");
+        for (i = 0; i < MAX_ARGS && token != NULL; i++) {
+            cmdArgs[i] = token;
+            token = strtok(NULL, " ");
+        }
+        cmdArgs[i] = NULL;
+
+        // Fork a new process
+        pid_t pid = fork();
+
+        if (pid == -1) {
+            // Error in fork
+            perror("fork");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            // Child process
+            log_msg(LOG_INFO,
+                    "Child process (before exec) PID: %d\n", getpid());
+
+            sem_wait(mySemaphore);
+//            log_msg(LOG_INFO, "Entered the critical section in child");
+
+//            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
+
+
+                // redir stdout to the named pipe
+             if (dup2(fifoFd, STDOUT_FILENO) == -1) {
+//                if (dup2(STDOUT_FILENO, fifoFd) == -1) {
+//                    log_msg(LOG_ERROR, "Dumping data to pipe failed: %s", fifoPath);
+                    perror("dup2");
+                    exit(EXIT_FAILURE);
+                }
+
+//            log_msg(LOG_INFO, "Dumping data to pipe: %s - done", fifoPath);
+//            log_msg(LOG_INFO, "Generating Image cmd: %s", cmd);
+            int res = execvp("/usr/bin/convert", cmdArgs);
+//            SSL_write(ssl, buffer, outFileSize);
+            // Remove the named pipe
+//            write(fifoFd, "\0",1 );
+
+            close(fifoFd);
+//            unlink(fifoPath);
+
+            log_msg(LOG_INFO, "Leaving the critical "
+                              "section in child 1, exec res: %d", res);
+
+//                unlink(fifoPath);
+//            close(fifoFd);
+
+            sem_post(mySemaphore);
+//            exit(EXIT_SUCCESS);
+
+            // execl only returns if there is an error
+//            perror("execl");
+//            exit(EXIT_FAILURE);
+        } else {
+            // Parent process
+            log_msg(LOG_INFO, "Parent process, child PID: %d\n", pid);
+
+        /*    // Wait for the child to complete
+            if (waitpid(pid, NULL, 0) == -1) {
+                perror("waitpid");
+                exit(EXIT_FAILURE);
+            }*/
+            log_msg(LOG_INFO, "Parent waited for child PID: %d\n", pid);
+
+//            char buffer[1024];
+//            char buffer[4096];
+            char buffer[4096];
+            int bytesRead;
+
+//            log_msg(LOG_INFO, "Open fifo");
+            // Open the FIFO for reading
+//            int fifoFd = open(fifoPath, O_RDONLY);
+//            int fifoFd = open(fifoPath, O_RDWR);
+//            if (fifoFd == -1) {
+//                log_msg(LOG_ERROR, "Open fifo failed");
+//
+//                perror("fifo_open");
+//                exit(EXIT_FAILURE);
+//            }
+
+            log_msg(LOG_INFO, "Read fifo");
+
+            // read fifo
+            int bytesTotal = 0;
+            while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
+//                if(buffer[bytesRead-1] == '\0') {
+//                    break;
+//                }
+                if ( bytesRead <= 0) {
+//                    SSL_write(ssl, "\0", 1);
+                    log_msg(LOG_INFO, "Rec2send: done");
+                    break;
+                }
+                buffer[bytesRead] = '\0'; // Null-terminate the string
+                log_msg(LOG_INFO, "Rec2send: %d", bytesRead);
+                bytesTotal += bytesRead;
+                SSL_write(ssl, buffer, bytesRead);
+            }
+            log_msg(LOG_INFO, "receiving done - total %d: ", bytesTotal);
+
+            if (bytesRead == -1) {
+                perror("fifo_read");
+                close(fifoFd);
+//                exit(EXIT_FAILURE);
+            }
+            log_msg(LOG_INFO, "receiving done");
+
+            // Close the FIFO
+        }
+
+//            sem_destroy(mySemaphore);
+        waitpid(pid, NULL, 0);
+        close(fifoFd);
+
+        SSL_write(ssl, "\0", 1);
+//        close(fifoFd);
+        sem_close(mySemaphore);
+        sem_unlink(semName);
+
+
+    }
+
 
 /*
     pollfd l_read_poll[1];
@@ -569,9 +803,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
                             dim_width, dim_height,
                             IMG_OUT);
                     log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
-
-
-
 
                     // sleep(1);  // Simulate some critical work
 //                execl("convert ", cmd, NULL);
