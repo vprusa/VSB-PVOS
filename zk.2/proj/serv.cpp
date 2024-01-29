@@ -539,12 +539,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
             perror("mkfifo");
             exit(EXIT_FAILURE);
         }
-//        log_msg(LOG_INFO, "Created named pipe: %s", fifoPath);
-
-//        int fifoFd = open(fifoPath, O_RDWR);
-//        int fifoFd = open(fifoPath,  O_RDWR | O_NONBLOCK | O_CREAT);
-
-//        log_msg(LOG_INFO, "Forking...");
 
         char * cmdArgs[MAX_ARGS];
         int i = 0;
@@ -611,7 +605,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                unlink(fifoPath);
 //            close(fifoFd);
             close(pfd[1]);
-//            sem_post(mySemaphore);
 
             // execl only returns if there is an error
 //            perror("execl");
@@ -674,6 +667,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                exit(EXIT_FAILURE);
             }
 //            close(fifoFd);
+            sem_post(mySemaphore);
 
             log_msg(LOG_INFO, "receiving done");
 
@@ -681,7 +675,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
 
         waitpid(pid, NULL, 0);
-        sem_post(mySemaphore);
+//        sem_post(mySemaphore);
         close(fifoFd);
         unlink(fifoPath);
 //        SSL_write(ssl, "\0", 1);
