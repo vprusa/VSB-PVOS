@@ -70,17 +70,6 @@
 
 #define IMG_PUNC "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sem.png"
 
-#define IMG_0 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/nula.png"
-#define IMG_1 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/jedna.png"
-#define IMG_2 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/dva.png"
-#define IMG_3 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/tri.png"
-#define IMG_4 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/ctyri.png"
-#define IMG_5 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/pet.png"
-#define IMG_6 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sest.png"
-#define IMG_7 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/sedm.png"
-#define IMG_8 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/osm.png"
-#define IMG_9 "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/devet.png"
-
 //#define IMG_OUT "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/out.jpg"
 //#define IMG_OUT "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk/proj/img/out.jpg"
 //#define IMG_OUT "out.jpg"
@@ -299,8 +288,6 @@ int main(int argc, char *argv[]) {
                     log_msg(LOG_DEBUG, "Read %d bytes from stdin");
                 }
 
-                //  if ( l_read_poll[ 1 ].events) {}
-
                 if (l_read_poll[1].revents & POLLIN) {
                     // new client?
 
@@ -445,7 +432,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
     } else {
         // TODO err
-        some_err = 1;
+//        some_err = 1;
     }
     if(t_hour == -1 || t_min == -1) {
         some_err = 1;
@@ -455,6 +442,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
     if((dim_width == -1 && dim_height != -1)||(dim_width != -1 && dim_height == -1)) {
         some_err = 1;
     }
+
 
     if(some_err == 1) {
         FILE * f = fopen (ERR_FILE, "rb");
@@ -467,17 +455,12 @@ void handle_client(int sd, SSL_CTX* ctx) {
         // read fifo
         int bytesTotal = 0;
         while ((bytesRead = fread(buffer, 1, sizeof(buffer) - 1, f)) > 0) {
-//            if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
-//                SSL_write(ssl, "\0", 1);
-//                log_msg(LOG_INFO, "ERec2send: done");
-//                break;
-//            }
             buffer[bytesRead] = '\0'; // Null-terminate the string
             log_msg(LOG_INFO, "ERec2send: %d", bytesRead);
             bytesTotal += bytesRead;
             SSL_write(ssl, buffer, bytesRead);
         }
-        log_msg(LOG_INFO, "ERec2send - total: %d",bytesTotal);
+        log_msg(LOG_INFO, "ERec2send - total: %d", bytesTotal);
         SSL_write(ssl, "\0\0\0\0",4 );
         fclose(f);
 
@@ -510,6 +493,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
             perror("sem_open");
             exit(EXIT_FAILURE);
         }
+        sem_wait(mySemaphore);
 
         int MAX_ARGS = 9;
 
@@ -599,7 +583,6 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //            log_msg(LOG_INFO,
 //                    "Child process (before exec) PID: %d\n", getpid());
             close(pfd[0]);
-            sem_wait(mySemaphore);
 //            log_msg(LOG_INFO, "Entered the critical section in child");
 
 //            log_msg(LOG_INFO, "Generating Image cmd: %s\n", cmd);
@@ -628,7 +611,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
 //                unlink(fifoPath);
 //            close(fifoFd);
             close(pfd[1]);
-            sem_post(mySemaphore);
+//            sem_post(mySemaphore);
 
             // execl only returns if there is an error
 //            perror("execl");
@@ -660,20 +643,29 @@ void handle_client(int sd, SSL_CTX* ctx) {
             }*/
             log_msg(LOG_INFO, "Read fifo 2 %d", fifoFd);
             // read fifo
+            int sleepLimit = 100000; // 0.1 s
+            int sleepLimitAdditive = 10000;
             int bytesTotal = 0;
 //            while ((bytesRead = read(fifoFd, buffer, sizeof(buffer) - 1)) > 0) {
             while ((bytesRead = read(pfd[0], buffer, sizeof(buffer) - 1)) > 0) {
 //                if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
-                if ( bytesRead <= 0 ) {
-                    SSL_write(ssl, "\0", 1);
-                    log_msg(LOG_INFO, "Rec2send: done");
-                    break;
-                }
+//                if ( bytesRead <= 0 ) {
+//                    SSL_write(ssl, "\0", 1);
+//                    log_msg(LOG_INFO, "Rec2send: done");
+//                    break;
+//                }
                 buffer[bytesRead] = '\0'; // Null-terminate the string
-                log_msg(LOG_INFO, "Rec2send: %d", bytesRead);
+
+//                log_msg(LOG_INFO, "Rec2send: %d", bytesRead);
+                printf(".");
+                fflush(stdout);
+
                 bytesTotal += bytesRead;
                 SSL_write(ssl, buffer, bytesRead);
+                usleep(sleepLimit);
+                sleepLimit += sleepLimitAdditive;
             }
+            printf( "\n");
             log_msg(LOG_INFO, "receiving done - total %d: ", bytesTotal);
 
             if (bytesRead == -1) {
@@ -689,13 +681,14 @@ void handle_client(int sd, SSL_CTX* ctx) {
         }
 
         waitpid(pid, NULL, 0);
+        sem_post(mySemaphore);
         close(fifoFd);
         unlink(fifoPath);
 //        SSL_write(ssl, "\0", 1);
 //        close(fifoFd);
         sem_close(mySemaphore);
-        sem_destroy(mySemaphore);
         sem_unlink(semName);
+//        sem_destroy(mySemaphore);
 
     }
     close(sd);
