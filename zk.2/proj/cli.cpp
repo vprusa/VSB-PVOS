@@ -227,7 +227,8 @@ int main(int argc, char *argv[]) {
 //        if (sent_dim == 0) {
         if( dim_width > 0 && dim_height > 0) {
             sprintf(time_and_dim_message,
-                "TIME %d:%d SIZE %dx%d",
+//                    "TIME %d:%d SIZE %dx%d",
+                    "TIME %d:0%d SIZE yyyx%d",
                 t_hour, t_min, dim_width, dim_height);
         } else {
             sprintf(time_and_dim_message,
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
         FILE * f = fopen (OUT_FILE, "wb");
         while(1) {
             err = SSL_read(ssl, imgBuf, sizeof(imgBuf) - 1);
-            log_msg(LOG_INFO, "Read %d bytes", err);
+//            log_msg(LOG_INFO, "Read %d bytes", err);
             imgBuf[err] = '\0';
             if(err > 0) {
                 fwrite(imgBuf, 1, err, f);

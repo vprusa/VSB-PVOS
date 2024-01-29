@@ -44,6 +44,8 @@
 #define KEYF  HOME  "my.key"
 
 #define HOME_DIR "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj"
+#define ERR_FILE "/home/vprusa/workspace/school/VSB/1ZS/PVOS/ukoly/zk.2/proj/img/error.png"
+
 
 
 #define CHK_NULL(x) if ((x)==NULL) exit (1)
@@ -131,7 +133,6 @@ struct pollfd_ssl
     int fd;			/* File descriptor to poll.  */
     short int events;		/* Types of events poller cares about.  */
     short int revents;		/* Types of events that actually occurred.  */
-    // TODO ssl
 };
 
 //sem_t mySemaphore;
@@ -383,6 +384,7 @@ void handle_client(int sd, SSL_CTX* ctx) {
         printf ("Client does not have certificate.\n");
     }
 
+    int some_err = 0;
     int retry_time = -1;
     int dim_width = -1;
     int dim_height = -1;
@@ -418,9 +420,10 @@ void handle_client(int sd, SSL_CTX* ctx) {
                 log_msg(LOG_INFO, "Parsed Time: %d:%d", t_hour, t_min);
             } else {
                 // TODO ERRROR
+                some_err = 1;
             }
         }
-        if(readb > 11) {
+        if(readb > 10) {
             if( dim_delim == ' ' // TODO floating space delim and rest of msg
                && buf[11] == 'S'
                && buf[12] == 'I'
@@ -437,13 +440,48 @@ void handle_client(int sd, SSL_CTX* ctx) {
                 log_msg(LOG_INFO, "Parsed Size: %dx%d", dim_width, dim_height);
             }
         } else {
+//            some_err = 1;
         }
     } else {
         // TODO err
+        some_err = 1;
+    }
+    if(t_hour == -1 || t_min == -1) {
+        some_err = 1;
+    }
+    some_err = 1;
+
+    if((dim_width == -1 && dim_height != -1)||(dim_width != -1 && dim_height == -1)) {
+        some_err = 1;
     }
 
-    // if time got, then generate image
-    if(t_hour != -1 && t_min != -1) {
+    if(some_err == 1) {
+        FILE * f = fopen (ERR_FILE, "rb");
+//        if(f) {
+//            SSL_write(ssl, "\0", 1);
+//        }
+        char buffer[1024];
+        int bytesRead;
+        log_msg(LOG_INFO, "Write Error");
+        // read fifo
+        int bytesTotal = 0;
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer) - 1, f)) > 0) {
+//            if ( bytesRead <= 0 || (bytesRead == 1 && buffer[0] == '\0' )) {
+//                SSL_write(ssl, "\0", 1);
+//                log_msg(LOG_INFO, "ERec2send: done");
+//                break;
+//            }
+            buffer[bytesRead] = '\0'; // Null-terminate the string
+            log_msg(LOG_INFO, "ERec2send: %d", bytesRead);
+            bytesTotal += bytesRead;
+            SSL_write(ssl, buffer, bytesRead);
+        }
+        log_msg(LOG_INFO, "ERec2send - total: %d",bytesTotal);
+        SSL_write(ssl, "\0\0\0\0",4 );
+        fclose(f);
+
+    } else if(t_hour != -1 && t_min != -1) {
+        // if time got, then generate image
         log_msg(LOG_INFO, "Will generate image data..");
 
         // round minutes to closest 10
